@@ -1,0 +1,4 @@
+# Normalize line endings to LF for deterministic, cross-platform builds.
+* text=auto eol=lf
+*.png binary
+*.pdf binary

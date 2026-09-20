@@ -1,0 +1,51 @@
+[project]
+name = "artifact-relay"
+version = "1.0.0"
+description = "Artifact Relay — an original Web CTF authored as a resettable RL environment with staged, machine-checkable rewards."
+readme = "README.md"
+requires-python = "==3.12.*"
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "sqlalchemy==2.0.36",
+    "aiosqlite==0.20.0",
+    "pydantic==2.10.4",
+    "pydantic-settings==2.7.1",
+    "structlog==24.4.0",
+    "httpx==0.28.1",
+    "pyyaml==6.0.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==8.3.4",
+    "pytest-asyncio==0.25.2",
+    "ruff==0.8.6",
+]
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "grader", "solver", "agents"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["app", "grader", "solver", "agents", "scripts", "tests"]
+
+[tool.ruff.lint]
+# TC (flake8-type-checking) intentionally omitted: FastAPI dependency injection
+# requires annotated types (AsyncSession, etc.) at runtime, so moving them into a
+# TYPE_CHECKING block would break resolution.
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-q"
+testpaths = ["tests"]

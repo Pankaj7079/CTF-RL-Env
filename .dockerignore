@@ -1,0 +1,10 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+*.db
+tests
+.pytest_cache
+.ruff_cache
+CALIBRATION.md
