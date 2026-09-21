@@ -8,3 +8,4 @@ __pycache__/
 
 # Private working material — never published (kept locally only).
 info/
+.env

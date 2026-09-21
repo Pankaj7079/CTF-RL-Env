@@ -61,7 +61,7 @@ class RolloutResult:
 class StochasticAgent:
     """Competent-but-imperfect policy over :class:`ArtifactRelayEnv`."""
 
-    def __init__(self, seed: int, p_wander: float = 0.35, p_insight: float = 0.30) -> None:
+    def __init__(self, seed: int, p_wander: float = 0.35, p_insight: float = 0.15) -> None:
         self.rng = random.Random(seed)
         self.p_wander = p_wander
         self.p_insight = p_insight
@@ -73,10 +73,10 @@ class StochasticAgent:
 
         logged_in = False
         normal_id: str | None = None
-        quar_id: str | None = None
+        quar_ids: list[str] = []
+        untried: list[str] = []
         ticket: str | None = None
         inspected = False
-        protected = False
         flag: str | None = None
         wandered = 0
         last = obs
@@ -99,22 +99,23 @@ class StochasticAgent:
                 action: dict = {"action": "list_releases"}
             elif not logged_in:
                 action = {"action": "login", "username": user, "password": password}
-            elif normal_id is None or quar_id is None:
+            elif normal_id is None or not quar_ids:
                 action = {"action": "list_artifacts"}
             elif ticket is None:
                 action = {"action": "mint", "artifact_id": normal_id}
             elif not inspected:
                 action = {"action": "relay", "ticket": ticket}
-            elif not protected:
-                # The crux. Either achieve the insight or try a distractor.
-                if self.rng.random() < self.p_insight:
-                    action = {"action": "relay", "ticket": _redirect_ticket(ticket, quar_id)}
-                else:
-                    action = self._distractor(normal_id, quar_id, ticket)
             elif flag is not None:
                 action = {"action": "submit_flag", "flag": flag}
             else:
-                action = {"action": "list_artifacts"}
+                # The crux: achieve the redirection insight, then search the
+                # restricted artifacts (one per turn) for the one holding the flag.
+                if self.rng.random() < self.p_insight and untried:
+                    target = self.rng.choice(untried)
+                    untried.remove(target)
+                    action = {"action": "relay", "ticket": _redirect_ticket(ticket, target)}
+                else:
+                    action = self._distractor(normal_id, quar_ids[0], ticket)
 
             last, r, terminated, truncated, info = await env.step(action)
             reward_total += r
@@ -127,17 +128,16 @@ class StochasticAgent:
                 for a in body.get("artifacts", []):
                     if a["status"] == "available":
                         normal_id = normal_id or a["id"]
-                    elif a["status"] == "quarantined":
-                        quar_id = a["id"]
+                    elif a["status"] == "quarantined" and a["id"] not in quar_ids:
+                        quar_ids.append(a["id"])
+                        untried.append(a["id"])
             if action["action"] == "mint" and isinstance(body, dict) and "ticket" in body:
                 ticket = body["ticket"]
             if action["action"] == "relay" and isinstance(body, dict) and "content" in body:
                 inspected = True
-                if last["state"]["protected_artifact_accessed"]:
-                    protected = True
-                    m = self._flag_re.search(body["content"])
-                    if m:
-                        flag = m.group(0)
+                m = self._flag_re.search(body["content"])
+                if m:
+                    flag = m.group(0)
 
         grade = last["grade"]
         return RolloutResult(
@@ -168,6 +168,6 @@ class StochasticAgent:
             None: "did not discover the application interface",
             "app_discovery": "found the app but never authenticated",
             "reviewer_session": "authenticated but never used the preview flow",
-            "preview_flow": "used tickets but never redirected one to the quarantined artifact",
-            "protected_artifact": "reached the artifact but failed to submit the flag",
+            "preview_flow": "used tickets but never redirected one to a restricted artifact",
+            "protected_artifact": "reached restricted artifacts but not the flag one in time",
         }.get(highest, "unknown")

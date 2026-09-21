@@ -28,6 +28,10 @@ def _derive(seed: int) -> dict[str, str]:
         "AR_TICKET_SECRET": f"ar_ticket_key_{h[12:28]}",
         "AR_PROJECT_SCOPE": f"project:{['releng', 'platform', 'infra', 'apps'][seed % 4]}",
         "AR_REVIEWER_PASSWORD": f"review-{h[28:36]}",
+        # id_salt varies every artifact/release identifier for this instance.
+        "AR_ID_SALT": h[36:42],
+        # keep difficulty in-band across instances (1 decoy => ~75% reference solve).
+        "AR_DECOY_QUARANTINE_COUNT": "1",
     }
 
 

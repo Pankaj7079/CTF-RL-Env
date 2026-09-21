@@ -39,19 +39,29 @@ nothing. This is the line between usable RL data and a writeup.
 
 ## Calibration
 Two *separate* agents, by design. A **deterministic reference solver** measures environment
-*reliability* (16/16 solves, <1 s each) — it must succeed every time or the reward would reflect flaky
-infra, not skill. A **seeded, fallible reference agent** measures *difficulty*: at the 16-turn budget
-it solves ~88% (inside the assignment's ≥60% band), and a turn-budget sweep (88→81→62→19% at
-16→12→10→8) shows a real gradient that collapses only as the budget approaches the 8-turn solution
-length. Every number is measured by `scripts/calibrate.py`; none is hand-set.
+*reliability* (16/16 solves, <1.5 s each) — it must succeed every time or the reward would reflect
+flaky infra, not skill. A **seeded, fallible reference agent** measures *difficulty*: at the 16-turn
+budget it solves **75%** (centered in the assignment's ≥60% band), and a turn-budget sweep
+(75→62→44→19% at 16→12→10→8) shows a real gradient that collapses only as the budget approaches the
+~8-turn solution length. Difficulty is tuned by two honest levers — the number of *decoy* restricted
+artifacts (the agent must find which one holds the flag) and the modeled solver competence — then
+re-measured; nothing is hand-set. Every number is produced by `scripts/calibrate.py`.
 
 ## Trade-offs
-I kept the reference agent scripted rather than LLM-driven so calibration is offline, free, and
-reproducible for this deadline; the same `env.step()` interface accepts a drop-in LLM agent. I fixed
-the flag and seed data for deterministic grading, and kept the domain small (4 artifacts, one flaw) so
-the whole design is explainable in the walkthrough.
+The scripted agent is offline/free/reproducible for calibration; a real **LLM agent**
+(`agents/llm_agent.py`, via Groq's free tier) uses the *same* `env.step()` interface to
+cross-check it. I fixed the flag and seed for deterministic grading, and kept the domain small (one
+flaw, a handful of artifacts) so the whole design is explainable in the walkthrough.
+
+## Extending to other CTF categories (bonus)
+The environment/grader/reward split is category-agnostic: only the challenge service and the
+observable events change. A **crypto** task would emit `KEYSTREAM_RECOVERED` / `PLAINTEXT_DECRYPTED`
+milestones; a **rev** task `FUNCTION_IDENTIFIED` / `CHECK_BYPASSED`; a **pwn** task `CRASH_TRIGGERED`
+/ `LEAK_OBTAINED` / `SHELL` (mapping cleanly onto the Track-B basic/intermediate/advanced tiers). Each
+reuses `reset()`/`step()`, the machine-readable `reward.yaml`, the event-backed grader, and the
+two-agent calibration unchanged — which is exactly what makes this a task *family*, not one puzzle.
 
 ## Next steps
-Thread the instance seed through artifact **identifiers** so `scripts/generate_task.py` yields a full
-*family* of isomorphic instances; add sibling flaws (JWT claim confusion, mass-assignment) behind the
-same env/grader interface; and swap in an LLM reference agent to cross-check the scripted calibration.
+Thread the instance seed through artifact **identifiers** end-to-end (started via `id_salt` +
+`scripts/generate_task.py`); add sibling web flaws (JWT claim confusion, mass-assignment) behind the
+same interface; and run the LLM agent across several open models to chart solve-rate vs model size.

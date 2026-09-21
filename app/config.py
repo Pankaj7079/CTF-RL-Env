@@ -46,6 +46,14 @@ class ChallengeConfig(BaseSettings):
     project_scope: str = Field(
         default="project:releng", description="Scope the reviewer may preview."
     )
+    # Optional salt appended to artifact/release identifiers. Empty by default
+    # (stable ids for tests); a task generator sets it per instance so decoys and
+    # ids vary while the structure and solve path stay identical.
+    id_salt: str = Field(default="")
+    # Number of *decoy* quarantined artifacts (no flag) alongside the real one.
+    # More decoys => the agent must find which restricted object holds the flag,
+    # which raises difficulty. Used to calibrate into the target band.
+    decoy_quarantine_count: int = Field(default=1)
 
     # --- Turn budget (matches the assignment's definition) ------------------
     turn_budget: int = Field(default=16)

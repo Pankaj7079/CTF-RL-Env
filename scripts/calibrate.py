@@ -142,7 +142,7 @@ async def _main() -> int:
     parser = argparse.ArgumentParser(description="Calibrate Artifact Relay.")
     parser.add_argument("--runs", type=int, default=16)
     parser.add_argument("--p-wander", type=float, default=0.45)
-    parser.add_argument("--p-insight", type=float, default=0.12)
+    parser.add_argument("--p-insight", type=float, default=0.15)
     args = parser.parse_args()
 
     rel_rows = await measure_reliability(args.runs)

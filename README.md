@@ -141,6 +141,31 @@ Two independent measurements, both offline and reproducible:
 See **[`CALIBRATION.md`](CALIBRATION.md)** for the full tables and the current measured numbers.
 (Summary is auto-generated there; do not hand-edit.)
 
+### 9a. Testing with a real LLM agent (free / open-source)
+
+The scripted agent above is deterministic and offline. To test the task with an **actual language
+model** — through the *same* `env.step()` interface — use `agents/llm_agent.py`. It calls **Groq's
+free tier** (OpenAI-compatible, no payment; free key at https://console.groq.com):
+
+```bash
+cp .env.example .env        # then paste your free Groq key
+uv run python agents/llm_agent.py --rollouts 5
+```
+
+`.env` (gitignored) holds the config:
+
+```ini
+LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_MODEL=llama-3.3-70b-versatile
+LLM_API_KEY=gsk_...
+```
+
+The agent gets the six actions as a JSON ReAct protocol (no function-calling dependency), runs within
+the 16-turn budget, and is scored by the same grader — printing a measured LLM solve rate. The
+redirection insight is genuinely hard, so stronger models score higher; that spread is exactly the
+difficulty signal. (The harness plumbing is verified offline in `tests/test_llm_agent.py` with a
+scripted stand-in model.)
+
 ## 10. Known failure modes (tracked by the reference agent)
 
 Exploration waste · authentication-but-no-preview · **preview-but-no-redirect** (the crux; the most
@@ -160,12 +185,15 @@ reference solver.
 
 ## 12. Limitations & future work
 
-- The stochastic agent is a *model* of a competent-but-imperfect solver, not an LLM. Its two noise
-  knobs are documented and the reported solve rate is whatever the runs yield. A drop-in LLM agent
-  could use the same `env.step()` interface.
-- The task generator (`scripts/generate_task.py`) derives a fresh instance config (flag, secret,
-  scope) from a seed. Threading the seed through artifact **identifiers** end-to-end (so decoys and
-  ids vary too) is the next step toward a full task *family*.
+- The scripted stochastic agent is a *model* of a competent-but-imperfect solver; its two noise knobs
+  are documented and the reported solve rate is whatever the runs yield. A real, open-source **LLM
+  agent** (`agents/llm_agent.py`, §9a) now uses the same `env.step()` interface to cross-check this.
+- At the 16-turn budget the difficulty is centered in the band (**75% solve**); the turn-budget curve
+  in `CALIBRATION.md` shows the gradient (75→62→44→19% at 16→12→10→8 turns). It is tuned via the number
+  of decoy restricted artifacts (`AR_DECOY_QUARANTINE_COUNT`) and re-measured, never hand-set.
+- The task generator (`scripts/generate_task.py`) derives a fresh instance config — flag, secret,
+  scope, and an `id_salt` that varies artifact **identifiers** — from a seed. Threading richer
+  structural variation (decoy layouts, multiple scopes) is the next step toward a full task *family*.
 
 ## 13. References consulted
 

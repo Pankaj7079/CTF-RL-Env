@@ -57,28 +57,29 @@ async def solve(env: ArtifactRelayEnv) -> dict:
     await env.step({"action": "list_releases"})
     # 3. Establish reviewer session (stage 2).
     await env.step({"action": "login", "username": user, "password": password})
-    # 4. Enumerate artifacts; locate a normal and the quarantined one.
+    # 4. Enumerate artifacts; locate a normal one and the restricted candidates.
     obs, *_ = await env.step({"action": "list_artifacts"})
     artifacts = obs["body"]["artifacts"]
     normal = next(a for a in artifacts if a["status"] == "available")
-    quarantined = next(a for a in artifacts if a["status"] == "quarantined")
+    quarantined = [a["id"] for a in artifacts if a["status"] == "quarantined"]
     # 5. Mint a legitimate ticket for the normal artifact (stage 3: mint half).
     obs, *_ = await env.step({"action": "mint", "artifact_id": normal["id"]})
     ticket = obs["body"]["ticket"]
     # 6. Use it normally to observe the relay + ticket structure (stage 3: relay half).
     await env.step({"action": "relay", "ticket": ticket})
-    # 7. Exploit: redirect the ticket to the quarantined artifact (stage 4).
-    tampered = redirect_ticket(ticket, quarantined["id"])
-    obs, *_ = await env.step({"action": "relay", "ticket": tampered})
-    content = obs["body"]["content"]
-    match = flag_re.search(content)
-    if not match:
-        raise RuntimeError("protected artifact reached but no flag found")
-    flag = match.group(0)
+    # 7. Exploit: redirect the ticket to each restricted artifact until the flag
+    #    appears (stage 4). There may be decoy restricted artifacts without a flag.
+    flag = None
+    for aid in quarantined:
+        obs, *_ = await env.step({"action": "relay", "ticket": redirect_ticket(ticket, aid)})
+        match = flag_re.search(obs["body"].get("content", ""))
+        if match:
+            flag = match.group(0)
+            break
+    if flag is None:
+        raise RuntimeError("no restricted artifact yielded a flag")
     # 8. Submit the flag (stage 5).
-    obs, reward, terminated, truncated, info = await env.step(
-        {"action": "submit_flag", "flag": flag}
-    )
+    obs, *_ = await env.step({"action": "submit_flag", "flag": flag})
     return obs
 
 
