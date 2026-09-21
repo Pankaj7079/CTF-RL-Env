@@ -61,7 +61,7 @@ class RolloutResult:
 class StochasticAgent:
     """Competent-but-imperfect policy over :class:`ArtifactRelayEnv`."""
 
-    def __init__(self, seed: int, p_wander: float = 0.35, p_insight: float = 0.15) -> None:
+    def __init__(self, seed: int, p_wander: float = 0.45, p_insight: float = 0.15) -> None:
         self.rng = random.Random(seed)
         self.p_wander = p_wander
         self.p_insight = p_insight
