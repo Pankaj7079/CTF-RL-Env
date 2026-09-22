@@ -1,9 +1,5 @@
-"""Flag submission route (reward stage 5).
-
-The flag is accepted only if it matches exactly AND the active attempt has
-already read the protected artifact through the relay. This ties the final reward
-to real environment evidence, not to a guessed or leaked string.
-"""
+# /flag — submit the flag (reward stage 5). Accepted only if it matches AND this
+# attempt actually read the protected artifact — so a guessed/leaked string fails.
 
 from __future__ import annotations
 
@@ -26,15 +22,13 @@ async def submit_flag(
     db: AsyncSession = Depends(get_session),  # noqa: TC002, B008
     config: ChallengeConfig = Depends(get_config),  # noqa: TC002, B008
 ) -> FlagResponse:
-    """Submit the flag for the active attempt."""
-
     attempt = await get_active_attempt(db)
     matches = secrets.compare_digest(body.flag.strip(), config.flag)
     if not matches:
         return FlagResponse(correct=False, message="Incorrect flag.")
 
-    # Anti-reward-hacking: a correct string alone is not enough — the attempt must
-    # have genuinely reached the protected artifact through the challenge.
+    # Anti-cheat: a correct string alone isn't enough — the attempt must have
+    # actually reached the protected artifact through the relay.
     seen = await event_types_for_attempt(db, attempt.id)
     if EventType.PROTECTED_ARTIFACT_READ not in seen:
         return FlagResponse(

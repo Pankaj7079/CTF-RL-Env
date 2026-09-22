@@ -1,9 +1,6 @@
-"""Pytest fixtures — an isolated, reset in-process app per test.
-
-A temporary SQLite file is configured BEFORE any app module is imported so the
-cached configuration points at throwaway state. Each test gets a freshly reset
-attempt via an httpx ASGI client (no network).
-"""
+# Pytest fixtures — an isolated, reset in-process app per test. A throwaway SQLite
+# file is set BEFORE importing any app module (config is cached), and each test
+# gets a freshly reset attempt over an httpx ASGI client (no network).
 
 from __future__ import annotations
 

@@ -1,9 +1,5 @@
-"""Verify the LLM-agent harness plumbing without a real model.
-
-A scripted stand-in ``chat_fn`` returns the correct JSON action each turn
-(including the tampered ticket), proving the ReAct loop, JSON extraction, and
-env integration all work. Swapping in a real model changes only ``chat_fn``.
-"""
+# Verify the LLM-agent plumbing without a real model: a scripted stand-in chat_fn
+# plays the intended path, proving the ReAct loop, JSON extraction, and env wiring.
 
 from __future__ import annotations
 
@@ -30,9 +26,8 @@ def _redirect(ticket: str, new_aid: str) -> str:
     return f"{nb}.{sig}"
 
 
+# A deterministic stand-in for an LLM that plays the intended path.
 class ScriptedModel:
-    """A deterministic stand-in for an LLM that plays the intended path."""
-
     def __init__(self) -> None:
         self.turn = 0
         self.ticket: str | None = None

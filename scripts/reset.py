@@ -1,9 +1,6 @@
-"""CLI: reset the challenge to a clean attempt.
-
-Usage:
-    uv run python scripts/reset.py            # reset in-process DB
-    AR_BASE_URL=http://localhost:8000 uv run python scripts/reset.py  # reset a running server
-"""
+# CLI: reset the challenge to a clean attempt.
+#   uv run python scripts/reset.py                 # in-process DB
+#   AR_BASE_URL=http://localhost:8000 ... reset.py # a running server
 
 from __future__ import annotations
 

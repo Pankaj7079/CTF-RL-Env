@@ -1,18 +1,7 @@
-"""Task generator (stretch) — turn one challenge into a family of instances.
-
-The assignment and the JD both value *task generators*. Because a whole instance
-is described by ``ChallengeConfig`` plus the seeded artifact set, generating a new
-instance is just producing a new config: a new flag, ticket secret, scope, and
-artifact identifiers, all derived deterministically from a seed. The environment,
-grader, solver, and calibration harness are unchanged — only the data varies.
-
-This script emits a ``.env`` file for a given seed; run the app with those values
-to get a distinct-but-isomorphic instance. It demonstrates the design; wiring the
-seed through the artifact ids end-to-end is listed as future work in the README.
-
-Usage:
-    uv run python scripts/generate_task.py --seed 4242
-"""
+# Task generator — one design, many instances. A whole instance is just a config,
+# so a seed deterministically derives a new flag, secret, scope, and id salt. The
+# env, grader, solver, and calibration are unchanged; only the data varies.
+# Emits env vars for the seed:  uv run python scripts/generate_task.py --seed 4242
 
 from __future__ import annotations
 
@@ -20,6 +9,7 @@ import argparse
 import hashlib
 
 
+# Derive one instance's config from a seed.
 def _derive(seed: int) -> dict[str, str]:
     h = hashlib.sha256(str(seed).encode()).hexdigest()
     return {

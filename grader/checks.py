@@ -1,9 +1,5 @@
-"""Code-backed stage checks.
-
-Each check is a pure predicate over the set of event-type names recorded for an
-attempt. The rubric (``reward.yaml``) references these by name, so scoring never
-evaluates arbitrary strings — a deliberate safety choice.
-"""
+# Stage checks — pure predicates over an attempt's event names. reward.yaml refers
+# to these by name, so scoring never eval's arbitrary strings (a safety choice).
 
 from __future__ import annotations
 
@@ -34,6 +30,7 @@ def flag_correct(events: set[str]) -> bool:
     return EventType.FLAG_CORRECT in events
 
 
+# Maps the `check` name in reward.yaml to its predicate.
 CHECKS: dict[str, CheckFn] = {
     "releases_listed": releases_listed,
     "session_established": session_established,
@@ -44,6 +41,4 @@ CHECKS: dict[str, CheckFn] = {
 
 
 def get_check(name: str) -> CheckFn:
-    """Look up a check predicate by name, raising ``KeyError`` if unknown."""
-
     return CHECKS[name]

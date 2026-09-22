@@ -1,9 +1,5 @@
-"""Derive attempt state from the event log.
-
-State is a pure projection of the append-only event log — never mutated
-directly. This guarantees the grader and the environment agree on progress and
-that no reward can be granted without a real, recorded transition.
-"""
+# Attempt state is a pure projection of the event log — never mutated directly,
+# so the env and grader always agree and no reward can be faked.
 
 from __future__ import annotations
 
@@ -12,9 +8,8 @@ from pydantic import BaseModel
 from app.events import EventType
 
 
+# Which milestones this attempt has reached.
 class AttemptState(BaseModel):
-    """Boolean projection of milestones reached in one attempt."""
-
     api_discovered: bool = False
     session_created: bool = False
     preview_flow_used: bool = False
@@ -22,12 +17,12 @@ class AttemptState(BaseModel):
     flag_submitted: bool = False
 
 
+# Turn a set of recorded event names into the boolean state.
 def project_state(event_types: set[str]) -> AttemptState:
-    """Project a set of recorded event type names into an ``AttemptState``."""
-
     return AttemptState(
         api_discovered=EventType.RELEASES_LISTED in event_types,
         session_created=EventType.SESSION_ESTABLISHED in event_types,
+        # Preview flow = a ticket was minted AND successfully used on the relay.
         preview_flow_used=(
             EventType.TICKET_MINTED in event_types and EventType.RELAY_OK in event_types
         ),

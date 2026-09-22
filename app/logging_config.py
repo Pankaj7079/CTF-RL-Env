@@ -1,10 +1,5 @@
-"""structlog configuration — structured logs, never bare ``print``.
-
-Logs are the operator-facing trace of the environment. They are deliberately
-separate from the *challenge event log* (see ``app/events.py``): logs are for
-humans debugging the server, events are the machine-checkable ground truth the
-grader consumes.
-"""
+# structlog setup. These are operator logs for debugging the server — separate
+# from the challenge event log (app/events.py), which is what the grader trusts.
 
 from __future__ import annotations
 
@@ -14,9 +9,8 @@ import sys
 import structlog
 
 
+# Wire structlog + stdlib logging once; safe to call repeatedly.
 def configure_logging(level: int = logging.INFO) -> None:
-    """Configure structlog + stdlib logging once, idempotently."""
-
     logging.basicConfig(format="%(message)s", stream=sys.stdout, level=level)
     structlog.configure(
         processors=[
@@ -34,6 +28,4 @@ def configure_logging(level: int = logging.INFO) -> None:
 
 
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:
-    """Return a bound structlog logger."""
-
     return structlog.get_logger(name)

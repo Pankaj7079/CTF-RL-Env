@@ -1,4 +1,4 @@
-"""Shared FastAPI dependencies."""
+# Shared FastAPI dependencies.
 
 from __future__ import annotations
 
@@ -10,12 +10,11 @@ from app.database import get_session
 from app.models import Session
 
 
+# Require a valid reviewer session from the Authorization header, else 401.
 async def require_session(
     authorization: str | None = Header(default=None),
     db: AsyncSession = Depends(get_session),  # noqa: TC002, B008
 ) -> Session:
-    """Resolve and require a valid reviewer session from the Authorization header."""
-
     session = await resolve_session(db, authorization)
     if session is None:
         raise HTTPException(

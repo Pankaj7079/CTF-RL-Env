@@ -1,20 +1,9 @@
-"""Calibration harness — measure the numbers the assignment requires.
-
-Two independent measurements, both fully offline and reproducible:
-
-1. RELIABILITY (deterministic solver): run the golden path N times, record
-   success and wall-clock time. Target: >= 14/16 successes, < 5 min each.
-
-2. DIFFICULTY (stochastic reference agent): run N seeded rollouts at the 16-turn
-   budget, record solve/turns/reward/failure-stage. Target: solve rate in the
-   learnable band (>= 60% solved, i.e. < 40% failure; and not > 80% failure).
-
-Results are written to CALIBRATION.md and printed. Numbers are whatever the runs
-produce — nothing is hand-set.
-
-Usage:
-    uv run python scripts/calibrate.py --runs 16
-"""
+# Calibration harness — measures the numbers the assignment asks for, offline and
+# reproducible. Two independent measurements:
+#   1. reliability: the deterministic solver over N runs (target >=14/16, <5min).
+#   2. difficulty: the fallible agent over N seeded rollouts (target 60-80% solve).
+# Writes CALIBRATION.md. Numbers are whatever the runs produce — never hand-set.
+# Run: uv run python scripts/calibrate.py --runs 16
 
 from __future__ import annotations
 
@@ -67,11 +56,10 @@ async def measure_difficulty(
     return results
 
 
+# Difficulty vs turn budget — shows the gradient as the task tightens.
 async def measure_curve(
     runs: int, p_wander: float, p_insight: float, budgets: tuple[int, ...]
 ) -> str:
-    """Difficulty vs turn budget — shows the reward gradient as the task tightens."""
-
     lines = ["| Turn budget | Solve rate | Failure rate |", "|---:|---:|---:|"]
     for b in budgets:
         results = await measure_difficulty(runs, p_wander, p_insight, turn_budget=b)

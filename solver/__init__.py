@@ -1,1 +1,1 @@
-"""Reference solver package."""
+# Reference solver package.

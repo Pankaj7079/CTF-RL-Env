@@ -1,8 +1,5 @@
-"""CLI: quick end-to-end smoke test (build sanity, no pytest needed).
-
-Runs the deterministic solver once against the in-process app and asserts the
-challenge is solved with full score.
-"""
+# CLI: quick end-to-end smoke test (no pytest needed). Runs the solver once
+# in-process and checks for a full-score solve.
 
 from __future__ import annotations
 

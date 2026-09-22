@@ -1,4 +1,4 @@
-"""The deterministic reference solver solves the challenge in-process."""
+# The deterministic reference solver solves the challenge in-process.
 
 from __future__ import annotations
 

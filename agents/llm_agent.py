@@ -1,24 +1,8 @@
-"""Real-LLM reference agent (free Groq tier).
-
-This drives the challenge with an actual language model instead of the scripted
-policy, through the *same* ``ArtifactRelayEnv.step()`` interface used everywhere
-else. It calls Groq's free, OpenAI-compatible ``/chat/completions`` endpoint —
-no payment required (get a free key at https://console.groq.com).
-
-Configuration is read from a local ``.env`` (see ``.env.example``):
-    LLM_BASE_URL=https://api.groq.com/openai/v1
-    LLM_MODEL=llama-3.3-70b-versatile
-    LLM_API_KEY=gsk_...
-
-The agent uses a plain-text ReAct protocol: each turn it emits exactly one JSON
-action, so it does not depend on model-specific function-calling. The environment
-scores it with the same grader, giving a *measured* LLM solve-rate to compare
-against the scripted calibration.
-
-Usage:
-    cp .env.example .env    # then paste your free Groq key
-    uv run python agents/llm_agent.py --rollouts 5
-"""
+# Real-LLM reference agent (free Groq tier). Drives the challenge with an actual
+# model through the same env.step() interface, so its solve-rate is comparable to
+# the scripted calibration. Uses a plain-text ReAct protocol (one JSON action per
+# turn) so it needs no function-calling support. Config comes from .env — see
+# .env.example. Run: uv run python agents/llm_agent.py --rollouts 5
 
 from __future__ import annotations
 
@@ -83,14 +67,9 @@ def _observe_user(obs: dict, reward: int) -> str:
     )
 
 
+# Pull the last JSON object with an "action" key out of model text. Uses
+# raw_decode so JSON containing braces (e.g. a flag{...}) parses correctly.
 def extract_action(text: str) -> dict | None:
-    """Pull the last JSON object with an ``action`` key out of model output.
-
-    Uses ``json.raw_decode`` scanning so it correctly handles JSON whose string
-    values contain braces (e.g. a flag like ``flag{...}``), which a naive regex
-    cannot.
-    """
-
     decoder = json.JSONDecoder()
     for start in reversed([i for i, ch in enumerate(text) if ch == "{"]):
         try:
@@ -121,9 +100,9 @@ async def _http_chat(messages: list[dict]) -> str:
         return r.json()["choices"][0]["message"]["content"]
 
 
+# Run one LLM-driven episode; returns the final grade dict. chat_fn is injectable
+# so tests can pass a scripted stand-in instead of a real model.
 async def run_episode(env: ArtifactRelayEnv, chat_fn: ChatFn) -> dict:
-    """Run one LLM-driven episode. Returns the final grade dict."""
-
     obs = await env.reset()
     messages: list[dict] = [
         {"role": "system", "content": SYSTEM_PROMPT},

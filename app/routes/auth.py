@@ -1,4 +1,4 @@
-"""Authentication route: establish a reviewer session (reward stage 2)."""
+# /login — establish a reviewer session (reward stage 2).
 
 from __future__ import annotations
 
@@ -20,8 +20,6 @@ async def login(
     db: AsyncSession = Depends(get_session),  # noqa: TC002, B008
     config: ChallengeConfig = Depends(get_config),  # noqa: TC002, B008
 ) -> LoginResponse:
-    """Log in as the low-privileged reviewer and receive a session token."""
-
     if not check_credentials(config, body.username, body.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
     attempt = await get_active_attempt(db)

@@ -1,17 +1,7 @@
-"""Artifact relay route — the vulnerable endpoint (reward stages 3b & 4).
-
-Given a signed ticket, the relay serves the artifact named by the ticket's
-``aid`` field. It verifies:
-
-1. the ticket signature (which, by design, covers only ``scope``);
-2. that the requested artifact's scope equals the ticket's scope;
-3. that the ticket belongs to the *active* attempt (anti stale/replay).
-
-Critically, it never re-checks ``quarantined``. That policy is only enforced at
-mint time, so a ticket minted for an available artifact and redirected (via a
-rewritten ``aid``) to a quarantined artifact in the same scope is served. This
-is the intended confused-deputy flaw.
-"""
+# /relay — the vulnerable endpoint (reward stages 3b & 4). It verifies the ticket
+# signature (scope only), a scope match, and that the ticket is from the active
+# attempt — but never re-checks `quarantined`. That omission is the flaw: a ticket
+# redirected (rewritten `aid`) to a quarantined artifact in the same scope is served.
 
 from __future__ import annotations
 
@@ -34,13 +24,11 @@ async def relay_artifact(
     db: AsyncSession = Depends(get_session),  # noqa: TC002, B008
     config: ChallengeConfig = Depends(get_config),  # noqa: TC002, B008
 ) -> dict[str, str]:
-    """Serve an artifact's content for a valid ticket."""
-
     payload = verify_ticket(config.ticket_secret, ticket)
     if payload is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid ticket.")
 
-    # Anti-replay across resets: the ticket must belong to the active attempt.
+    # Reject tickets from a past attempt (anti stale/replay after reset).
     attempt = await get_active_attempt(db)
     if payload.attempt != attempt.id:
         raise HTTPException(
@@ -53,8 +41,7 @@ async def relay_artifact(
     if artifact is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such artifact.")
 
-    # The only authorization check on the relay path: scope match.
-    # (Note: quarantine status is deliberately NOT re-checked here.)
+    # Only check on this path: scope match. Quarantine is deliberately NOT re-checked.
     if artifact.scope != payload.scope:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Ticket scope does not cover artifact."

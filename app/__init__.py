@@ -1,1 +1,1 @@
-"""Artifact Relay challenge application package."""
+# Artifact Relay challenge application package.

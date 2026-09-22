@@ -1,4 +1,4 @@
-"""Reset semantics: fresh attempt, cleared state, stale tickets rejected."""
+# Reset semantics: fresh attempt, cleared state, stale tickets rejected.
 
 from __future__ import annotations
 

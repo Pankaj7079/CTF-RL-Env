@@ -1,1 +1,1 @@
-"""Reference agents for calibration."""
+# Reference agents (scripted + LLM).

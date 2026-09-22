@@ -1,25 +1,12 @@
-"""Gymnasium-style environment wrapper around the Artifact Relay challenge.
-
-This turns the HTTP challenge into a standard agent-environment loop:
-
-    obs = env.reset()
-    obs, reward, terminated, truncated, info = env.step(action)
-
-A *turn* is exactly one ``step`` — one agent action and the observation it
-returns — matching the assignment's definition and its 16-turn budget. Reward is
-the increase in the grader's cumulative score caused by that action, so the
-signal is dense and monotonic.
-
-The environment can run two ways:
-
-* in-process (``in_process=True``): an ASGI transport talks to a fresh app with
-  no network at all — used for deterministic, offline calibration and tests;
-* over HTTP (``base_url=...``): against a running container.
-
-The action space is a small, explicit dict protocol (see ``ACTIONS``). Unknown or
-malformed actions are safe no-ops that cost a turn — an agent cannot crash the
-environment or earn reward without a real state transition.
-"""
+# Gymnasium-style wrapper: turns the HTTP challenge into reset()/step().
+#   obs = env.reset()
+#   obs, reward, terminated, truncated, info = env.step(action)
+# One step = one turn (action + observation). Reward = increase in the grader's
+# cumulative score, so the signal is dense and monotonic.
+#
+# Two modes: in_process=True talks to a fresh app over an ASGI transport (offline,
+# for tests/calibration); base_url=... hits a running container. Unknown/malformed
+# actions are safe no-ops that still cost a turn.
 
 from __future__ import annotations
 
@@ -44,8 +31,6 @@ ACTIONS = (
 
 
 class ArtifactRelayEnv:
-    """An async, resettable environment for one solve attempt at a time."""
-
     def __init__(
         self,
         base_url: str | None = None,
@@ -61,11 +46,11 @@ class ArtifactRelayEnv:
         self._turns = 0
         self._score = 0
 
-    # --- lifecycle ----------------------------------------------------------
+    # Build the HTTP client lazily (ASGI in-process, or a real network client).
     async def _ensure_client(self) -> httpx.AsyncClient:
         if self._client is None:
             if self._in_process:
-                # Import lazily so the module is importable without a DB.
+                # Imported here so this module loads without a DB configured.
                 from app.database import init_db
                 from app.main import create_app
 
@@ -77,9 +62,8 @@ class ArtifactRelayEnv:
                 self._client = httpx.AsyncClient(base_url=self._base_url, timeout=10.0)
         return self._client
 
+    # Start a clean attempt; return the first observation.
     async def reset(self) -> dict[str, Any]:
-        """Start a clean attempt and return the initial observation."""
-
         client = await self._ensure_client()
         await client.post("/_internal/reset")
         self._token = None
@@ -92,16 +76,13 @@ class ArtifactRelayEnv:
             await self._client.aclose()
             self._client = None
 
-    # --- stepping -----------------------------------------------------------
+    # Apply one action -> (obs, reward, terminated, truncated, info).
     async def step(self, action: dict[str, Any]) -> tuple[dict[str, Any], int, bool, bool, dict]:
-        """Apply one action. Returns (obs, reward, terminated, truncated, info)."""
-
         client = await self._ensure_client()
         self._turns += 1
         result = await self._dispatch(client, action)
 
-        # Surface the action's response at the top level of the observation
-        # (``ok``/``status``/``body``/``error``) for convenient agent access.
+        # Flatten the response (ok/status/body/error) into the observation.
         obs = await self._observe(action_result=result, **result)
         new_score = obs["grade"]["score"]
         reward = new_score - self._score
@@ -112,6 +93,7 @@ class ArtifactRelayEnv:
         info = {"turns": self._turns, "turn_budget": self.turn_budget}
         return obs, reward, terminated, truncated, info
 
+    # Map an action dict to the matching HTTP call; keep the session token in sync.
     async def _dispatch(self, client: httpx.AsyncClient, action: dict[str, Any]) -> dict[str, Any]:
         kind = action.get("action")
         headers = {"Authorization": f"Bearer {self._token}"} if self._token else {}
@@ -149,7 +131,7 @@ class ArtifactRelayEnv:
                 )
             else:
                 return {"ok": False, "error": f"unknown action: {kind!r}", "actions": ACTIONS}
-        except httpx.HTTPError as exc:  # network/transport failure is a safe no-op
+        except httpx.HTTPError as exc:  # transport failure -> safe no-op
             return {"ok": False, "error": f"transport error: {exc}"}
 
         body: Any
@@ -159,7 +141,7 @@ class ArtifactRelayEnv:
             body = r.text
         return {"ok": r.is_success, "status": r.status_code, "body": body}
 
-    # --- observation --------------------------------------------------------
+    # Read attempt status from the server and score it with the grader.
     async def _observe(self, **extra: Any) -> dict[str, Any]:
         client = await self._ensure_client()
         status = (await client.get("/_internal/status")).json()
@@ -174,10 +156,8 @@ class ArtifactRelayEnv:
             **extra,
         }
 
-    # --- convenience --------------------------------------------------------
+    # Reviewer creds are public knowledge for the reference agents.
     @staticmethod
     def reviewer_credentials() -> tuple[str, str]:
-        """Return the reviewer credentials (public knowledge for the reference agent)."""
-
         cfg = get_config()
         return cfg.reviewer_username, cfg.reviewer_password

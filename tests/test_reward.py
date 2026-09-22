@@ -1,4 +1,4 @@
-"""Reward grading: monotonicity, totals, and no text-only / stale-state credit."""
+# Reward grading: monotonicity, totals, and no text-only / stale-state credit.
 
 from __future__ import annotations
 

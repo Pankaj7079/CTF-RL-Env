@@ -1,4 +1,4 @@
-"""The intended flaw, and the guards around it."""
+# The intended flaw, and the guards around it.
 
 from __future__ import annotations
 

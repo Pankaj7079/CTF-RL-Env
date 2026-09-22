@@ -1,8 +1,5 @@
-"""Release discovery route (reward stage 1).
-
-Unauthenticated so an agent can discover the application surface, but listing
-emits the ``RELEASES_LISTED`` milestone tied to the active attempt.
-"""
+# /releases — discovery surface (reward stage 1). Unauthenticated on purpose, but
+# listing emits RELEASES_LISTED for the active attempt.
 
 from __future__ import annotations
 
@@ -24,8 +21,6 @@ router = APIRouter(tags=["releases"])
 async def list_releases(
     db: AsyncSession = Depends(get_session),  # noqa: TC002, B008
 ) -> ReleasesResponse:
-    """List release identifiers and how many artifacts each contains."""
-
     artifacts = (await db.execute(select(Artifact))).scalars().all()
     counts = Counter(a.release for a in artifacts)
     attempt = await get_active_attempt(db)

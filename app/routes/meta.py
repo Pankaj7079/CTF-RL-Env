@@ -1,9 +1,5 @@
-"""Meta routes: root banner, health, attempt status, and reset.
-
-``/_internal/status`` exposes the attempt-scoped event log and derived state so
-the environment wrapper and grader can score progress from real evidence. It
-never reveals the flag or artifact content.
-"""
+# Meta routes: banner, health, attempt status, and reset. /_internal/status feeds
+# the env wrapper and grader the event log + derived state (never the flag/content).
 
 from __future__ import annotations
 
@@ -18,10 +14,9 @@ from app.state import project_state
 router = APIRouter(tags=["meta"])
 
 
+# Public banner — the agent's discovery entry point.
 @router.get("/")
 async def root() -> dict[str, str]:
-    """Public banner describing the portal (discovery entry point)."""
-
     return {
         "service": "Artifact Relay",
         "description": "Internal software-artifact review portal.",
@@ -35,21 +30,19 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+# Recorded events + derived state for the active attempt (used by env/grader).
 @router.get("/_internal/status", response_model=StatusResponse)
 async def status(
     db: AsyncSession = Depends(get_session),  # noqa: TC002, B008
 ) -> StatusResponse:
-    """Return the active attempt's recorded events and derived state."""
-
     attempt = await get_active_attempt(db)
     events = await event_types_for_attempt(db, attempt.id)
     state = project_state(events)
     return StatusResponse(attempt_id=attempt.id, events=sorted(events), state=state.model_dump())
 
 
+# Start a fresh, clean attempt.
 @router.post("/_internal/reset", response_model=ResetResponse)
 async def reset() -> ResetResponse:
-    """Retire the current attempt and start a clean one."""
-
     attempt_id = await reset_challenge()
     return ResetResponse(attempt_id=attempt_id)

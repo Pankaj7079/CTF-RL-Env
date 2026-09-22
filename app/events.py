@@ -1,10 +1,5 @@
-"""Challenge event vocabulary and emit helper.
-
-Events are the *only* thing the grader trusts. Each event is attempt-scoped and
-written by the server in response to a genuine, verified state transition — never
-in response to agent-supplied text. This is the backbone of the
-anti-reward-hacking design.
-"""
+# The event vocabulary + helpers. The server writes an event only on a real,
+# verified state transition — never from agent text. This is the anti-cheat core.
 
 from __future__ import annotations
 
@@ -16,9 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import ChallengeEvent
 
 
+# The observable milestones the grader keys rewards off.
 class EventType(StrEnum):
-    """The observable milestones a grader can key rewards off of."""
-
     RELEASES_LISTED = "RELEASES_LISTED"
     SESSION_ESTABLISHED = "SESSION_ESTABLISHED"
     TICKET_MINTED = "TICKET_MINTED"
@@ -27,17 +21,15 @@ class EventType(StrEnum):
     FLAG_CORRECT = "FLAG_CORRECT"
 
 
+# Record an event for this attempt. Caller is responsible for committing.
 async def emit(
     session: AsyncSession, attempt_id: str, event_type: EventType, detail: str = ""
 ) -> None:
-    """Append an attempt-scoped event. Caller commits."""
-
     session.add(ChallengeEvent(attempt_id=attempt_id, type=str(event_type), detail=detail))
 
 
+# All event type names seen in one attempt (what the grader reads).
 async def event_types_for_attempt(session: AsyncSession, attempt_id: str) -> set[str]:
-    """Return the set of event type names recorded for ``attempt_id``."""
-
     rows = (
         (
             await session.execute(

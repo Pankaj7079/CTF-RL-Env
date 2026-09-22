@@ -1,4 +1,4 @@
-"""FastAPI application factory for the Artifact Relay challenge."""
+# FastAPI app factory for the Artifact Relay challenge.
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from app.routes import artifacts, auth, flag, meta, relay, releases, tickets
 log = get_logger(__name__)
 
 
+# Configure logging and seed the DB on startup.
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     configure_logging()
@@ -22,8 +23,6 @@ async def lifespan(_app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    """Build and return the FastAPI application."""
-
     app = FastAPI(
         title="Artifact Relay",
         version="1.0.0",

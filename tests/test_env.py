@@ -1,4 +1,4 @@
-"""Environment wrapper: turn budget, reward deltas, and no-op safety."""
+# Environment wrapper: turn budget, reward deltas, and no-op safety.
 
 from __future__ import annotations
 

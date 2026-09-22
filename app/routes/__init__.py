@@ -1,1 +1,1 @@
-"""API route modules for the Artifact Relay challenge."""
+# API route modules.

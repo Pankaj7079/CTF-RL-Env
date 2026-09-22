@@ -1,22 +1,8 @@
-"""A seeded, fallible "competent" reference agent for difficulty calibration.
-
-The deterministic solver proves the task *can* be solved reliably. To measure how
-*hard* it is, we need an agent that behaves like a competent-but-imperfect
-solver: it knows the general shape of a web task, but it wanders during
-exploration and does not always achieve the key insight — that the preview
-ticket can be redirected — within the turn budget.
-
-The policy is greedy toward the goal with two calibrated noise knobs:
-
-* ``p_wander``   — chance, early on, of spending a turn on an irrelevant path.
-* ``p_insight``  — per-opportunity chance of attempting the ticket-redirection
-                   exploit rather than a plausible-but-wrong distractor.
-
-Everything is driven by a seeded ``random.Random`` so a given seed reproduces a
-given trajectory exactly. These knobs are a *model of solver competence*, chosen
-and then measured — the reported solve rate is whatever the runs actually yield,
-never hand-set.
-"""
+# Seeded, fallible reference agent used to MEASURE difficulty (the solver measures
+# reliability). It models a competent-but-imperfect solver: greedy toward the goal
+# but with two noise knobs — p_wander (waste a turn early) and p_insight (chance of
+# trying the redirect exploit vs a plausible-but-wrong action). Seeded, so a given
+# seed reproduces a given run; the reported solve rate is measured, never hand-set.
 
 from __future__ import annotations
 
@@ -30,9 +16,11 @@ from app.env import ArtifactRelayEnv
 
 from grader.grader import load_rubric
 
+# Irrelevant endpoints the agent may waste an early turn on.
 _DECOY_PATHS = ("/admin", "/api", "/status", "/artifacts/all", "/debug", "/flag")
 
 
+# Same exploit as the solver: rewrite `aid`, keep the signature.
 def _redirect_ticket(ticket: str, new_aid: str) -> str:
     body_b64, _, sig = ticket.partition(".")
     padding = "=" * (-len(body_b64) % 4)
@@ -59,8 +47,6 @@ class RolloutResult:
 
 
 class StochasticAgent:
-    """Competent-but-imperfect policy over :class:`ArtifactRelayEnv`."""
-
     def __init__(self, seed: int, p_wander: float = 0.45, p_insight: float = 0.15) -> None:
         self.rng = random.Random(seed)
         self.p_wander = p_wander
@@ -85,7 +71,7 @@ class StochasticAgent:
 
         while not (terminated or truncated):
             state = last["state"]
-            # Early, sometimes waste a turn exploring irrelevant surface.
+            # Early on, sometimes burn a turn on an irrelevant endpoint.
             if wandered < 2 and not logged_in and self.rng.random() < self.p_wander:
                 path = self.rng.choice(_DECOY_PATHS)
                 last, r, terminated, truncated, _ = await env.step(
@@ -95,6 +81,7 @@ class StochasticAgent:
                 wandered += 1
                 continue
 
+            # Otherwise walk the intended path in order.
             if not state["api_discovered"]:
                 action: dict = {"action": "list_releases"}
             elif not logged_in:
@@ -108,8 +95,8 @@ class StochasticAgent:
             elif flag is not None:
                 action = {"action": "submit_flag", "flag": flag}
             else:
-                # The crux: achieve the redirection insight, then search the
-                # restricted artifacts (one per turn) for the one holding the flag.
+                # The crux: get the redirect insight, then try restricted artifacts
+                # one per turn until one yields the flag.
                 if self.rng.random() < self.p_insight and untried:
                     target = self.rng.choice(untried)
                     untried.remove(target)
@@ -120,7 +107,7 @@ class StochasticAgent:
             last, r, terminated, truncated, info = await env.step(action)
             reward_total += r
 
-            # Update beliefs from observations.
+            # Update what the agent "knows" from the response.
             body = last.get("body")
             if action["action"] == "login" and last["state"]["session_created"]:
                 logged_in = True
@@ -149,9 +136,8 @@ class StochasticAgent:
             failure_reason=self._reason(grade),
         )
 
+    # A plausible-but-wrong move a real solver might try at the crux.
     def _distractor(self, normal_id: str, quar_id: str, ticket: str) -> dict:
-        """A plausible-but-wrong action a competent agent might try at the crux."""
-
         choice = self.rng.choice(("mint_quarantined", "relay_again", "guess_flag"))
         if choice == "mint_quarantined":
             return {"action": "mint", "artifact_id": quar_id}  # refused at mint time
@@ -159,6 +145,7 @@ class StochasticAgent:
             return {"action": "relay", "ticket": ticket}  # re-reads the normal artifact
         return {"action": "submit_flag", "flag": "flag{not_the_real_one}"}
 
+    # Human-readable reason for a failed rollout (for the calibration report).
     @staticmethod
     def _reason(grade: dict) -> str:
         if grade["solved"]:

@@ -1,10 +1,6 @@
-"""The grader: turn a recorded event set into a cumulative, monotonic score.
-
-Loads the machine-readable rubric and applies each stage's code-backed check to
-the attempt's event set. Because checks are monotone (an event is never removed)
-and scores are non-negative, the total reward is strictly non-decreasing across a
-solve trajectory — exactly the dense, ordered signal the assignment asks for.
-"""
+# The grader: turn a recorded event set into a cumulative, monotonic score.
+# Checks are monotone (events never disappear) and scores non-negative, so total
+# reward only ever goes up across a solve — the dense signal the task needs.
 
 from __future__ import annotations
 
@@ -40,10 +36,9 @@ class Rubric:
         return sum(s.score for s in self.stages)
 
 
+# Load + cache the rubric from YAML.
 @lru_cache(maxsize=1)
 def load_rubric(path: str | None = None) -> Rubric:
-    """Load and cache the reward rubric from YAML."""
-
     data = yaml.safe_load(Path(path or RUBRIC_PATH).read_text(encoding="utf-8"))
     stages = tuple(
         Stage(id=s["id"], description=s["description"], check=s["check"], score=int(s["score"]))
@@ -76,9 +71,8 @@ class GradeResult:
         }
 
 
+# Sum the score of every stage whose check passes; solved = all stages reached.
 def grade(events: set[str], rubric: Rubric | None = None) -> GradeResult:
-    """Score an attempt from its recorded event-type set."""
-
     rubric = rubric or load_rubric()
     score = 0
     reached: list[str] = []

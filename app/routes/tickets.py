@@ -1,9 +1,5 @@
-"""Preview-ticket minting route (reward stage 3, first half).
-
-Mints a signed ticket for an *available* artifact. It refuses to mint for a
-quarantined artifact — this is the control the intended flaw bypasses: the mint
-path enforces the quarantine policy, but the relay path does not re-check it.
-"""
+# /tickets — mint a preview ticket (reward stage 3, first half). This path DOES
+# enforce the quarantine policy; the relay path is the one that forgets to.
 
 from __future__ import annotations
 
@@ -31,8 +27,6 @@ async def mint_preview_ticket(
     db: AsyncSession = Depends(get_session),  # noqa: TC002, B008
     config: ChallengeConfig = Depends(get_config),  # noqa: TC002, B008
 ) -> MintResponse:
-    """Mint a preview ticket for an available artifact in the reviewer's scope."""
-
     artifact = (
         (await db.execute(select(Artifact).where(Artifact.id == body.artifact_id)))
         .scalars()
@@ -42,8 +36,8 @@ async def mint_preview_ticket(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such artifact.")
     if artifact.scope != config.project_scope:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Scope not permitted.")
+    # Quarantine policy is enforced at mint time only.
     if artifact.quarantined:
-        # Policy is enforced here at mint time.
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Artifact is quarantined; preview tickets cannot be minted for it.",

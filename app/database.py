@@ -1,15 +1,5 @@
-"""Async SQLite engine, session factory, and deterministic seed/reset.
-
-The database is the environment's persistent state. Two operations matter for an
-RL environment:
-
-* ``init_db`` — create schema and seed deterministic domain data (idempotent).
-* ``reset_challenge`` — retire the current attempt and start a clean one, so the
-  same environment can be run repeatedly for training/eval.
-
-Seeding is fully deterministic given ``ChallengeConfig.instance_seed`` so that
-every build and every reset produces byte-identical domain data.
-"""
+# Async SQLite engine + deterministic seed/reset. Seeding is fully determined by
+# the config, so every build and every reset yields identical domain data.
 
 from __future__ import annotations
 
@@ -25,6 +15,7 @@ from app.models import Artifact, Attempt, Base, ChallengeEvent, Session
 
 log = get_logger(__name__)
 
+# Process-wide engine/sessionmaker, built lazily on first use.
 _engine = None
 _sessionmaker: async_sessionmaker[AsyncSession] | None = None
 
@@ -38,33 +29,22 @@ def _make_engine(config: ChallengeConfig):
 
 
 def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
-    """Return the process-wide async session factory."""
-
     if _sessionmaker is None:
         _make_engine(get_config())
     assert _sessionmaker is not None
     return _sessionmaker
 
 
+# FastAPI dependency: yields one AsyncSession per request.
 async def get_session() -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency yielding an ``AsyncSession``."""
-
     async with get_sessionmaker()() as session:
         yield session
 
 
 def _seed_artifacts(config: ChallengeConfig) -> list[Artifact]:
-    """Deterministic artifact set.
-
-    All artifacts share ``config.project_scope``. Exactly one quarantined artifact
-    holds the flag; ``config.decoy_quarantine_count`` additional restricted
-    artifacts hold no flag, so the agent must reason about *which* restricted
-    object contains the secret (a real difficulty lever, tuned via calibration).
-
-    Identifiers optionally carry ``config.id_salt`` so a task generator can emit
-    distinct-but-isomorphic instances without touching any logic.
-    """
-
+    # All artifacts share one scope. Exactly one restricted artifact holds the
+    # flag; the rest are decoys, so the agent must find the right one. `id_salt`
+    # lets the generator vary ids per instance without changing any logic.
     scope = config.project_scope
     sfx = f"-{config.id_salt}" if config.id_salt else ""
     normal = [
@@ -125,9 +105,8 @@ def _seed_artifacts(config: ChallengeConfig) -> list[Artifact]:
     return [*normal, real, *decoys]
 
 
+# Create tables and seed once (if empty). Safe to call on every startup.
 async def init_db() -> None:
-    """Create schema and seed deterministic data if empty. Idempotent."""
-
     config = get_config()
     engine = _make_engine(config)
     async with engine.begin() as conn:
@@ -156,27 +135,18 @@ async def _ensure_active_attempt(session: AsyncSession) -> Attempt:
 
 
 async def get_active_attempt(session: AsyncSession) -> Attempt:
-    """Return the current active attempt (creating one if necessary)."""
-
     return await _ensure_active_attempt(session)
 
 
+# Start a clean attempt: drop sessions/events, re-seed data, keep flag + config.
+# Old tickets/sessions become invalid, which prevents stale/cross-attempt cheats.
 async def reset_challenge() -> str:
-    """Retire the active attempt and start a fresh, clean one.
-
-    Clears sessions and attempt-scoped events, deactivates the old attempt, and
-    re-seeds domain data deterministically if it was mutated. The flag and
-    challenge configuration are preserved. Returns the new attempt id.
-    """
-
     config = get_config()
     async with get_sessionmaker()() as session:
-        # Deactivate all attempts and wipe transient state.
         for attempt in (await session.execute(select(Attempt))).scalars().all():
             attempt.active = False
         await session.execute(delete(Session))
         await session.execute(delete(ChallengeEvent))
-        # Restore deterministic domain data.
         await session.execute(delete(Artifact))
         session.add_all(_seed_artifacts(config))
         new_attempt = Attempt(id=str(uuid.uuid4()), active=True)

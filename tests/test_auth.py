@@ -1,4 +1,4 @@
-"""Authentication and access-control behavior."""
+# Authentication and access-control behavior.
 
 from __future__ import annotations
 
