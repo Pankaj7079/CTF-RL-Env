@@ -17,6 +17,7 @@ class EventType(StrEnum):
     SESSION_ESTABLISHED = "SESSION_ESTABLISHED"
     TICKET_MINTED = "TICKET_MINTED"
     RELAY_OK = "RELAY_OK"
+    TICKET_REDIRECTED = "TICKET_REDIRECTED"
     PROTECTED_ARTIFACT_READ = "PROTECTED_ARTIFACT_READ"
     FLAG_CORRECT = "FLAG_CORRECT"
 
@@ -26,6 +27,19 @@ async def emit(
     session: AsyncSession, attempt_id: str, event_type: EventType, detail: str = ""
 ) -> None:
     session.add(ChallengeEvent(attempt_id=attempt_id, type=str(event_type), detail=detail))
+
+
+# The `detail` values recorded for one event type in an attempt.
+async def event_details(session: AsyncSession, attempt_id: str, event_type: EventType) -> set[str]:
+    rows = (
+        await session.execute(
+            select(ChallengeEvent.detail).where(
+                ChallengeEvent.attempt_id == attempt_id,
+                ChallengeEvent.type == str(event_type),
+            )
+        )
+    ).scalars()
+    return set(rows)
 
 
 # All event type names seen in one attempt (what the grader reads).

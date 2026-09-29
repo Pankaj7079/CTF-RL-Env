@@ -30,6 +30,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(meta.router)
+    app.include_router(meta.internal)
     app.include_router(auth.router)
     app.include_router(releases.router)
     app.include_router(artifacts.router)

@@ -1,14 +1,22 @@
-# Calibration harness — measures the numbers the assignment asks for, offline and
-# reproducible. Two independent measurements:
-#   1. reliability: the deterministic solver over N runs (target >=14/16, <5min).
-#   2. difficulty: the fallible agent over N seeded rollouts (target 60-80% solve).
-# Writes CALIBRATION.md. Numbers are whatever the runs produce — never hand-set.
-# Run: uv run python scripts/calibrate.py --runs 16
+"""Measure the numbers the assignment asks for and write CALIBRATION.md.
+
+    uv run python -m scripts.calibrate            # 16 runs, 100-rollout sweeps
+    uv run python -m scripts.calibrate --sweep-runs 200
+
+Three independent pieces of evidence, kept apart on purpose:
+
+1. Reliability: the deterministic reference solver on 16 different instances.
+2. Difficulty proxy: a seeded scripted agent. Its solve rate depends on two
+   probabilities I set by hand, so the sweep shows how much they matter.
+3. A real model: read from runs/llm_rollouts.jsonl when agents/llm_agent.py has been run.
+"""
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import json
+import math
 import statistics
 import time
 from pathlib import Path
@@ -17,24 +25,47 @@ from agents.stochastic_agent import RolloutResult, StochasticAgent
 from app.env import ArtifactRelayEnv
 from solver.reference_solution import solve
 
-REPORT_PATH = Path(__file__).resolve().parents[1] / "CALIBRATION.md"
+ROOT = Path(__file__).resolve().parents[1]
+REPORT_PATH = ROOT / "CALIBRATION.md"
+LLM_LOG = ROOT / "runs" / "llm_rollouts.jsonl"
+
+SOLVE_TARGET = 0.60
+MIN_ROLLOUTS = 16
+RELIABILITY_TARGET = 14
+SOLVE_TIME_LIMIT_S = 300
+
+
+def wilson(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """95% Wilson score interval for a binomial proportion."""
+    if n == 0:
+        return 0.0, 0.0
+    p = successes / n
+    denom = 1 + z**2 / n
+    centre = (p + z**2 / (2 * n)) / denom
+    half = z * math.sqrt(p * (1 - p) / n + z**2 / (4 * n**2)) / denom
+    return max(0.0, centre - half), min(1.0, centre + half)
+
+
+def _rate_with_ci(successes: int, n: int) -> str:
+    lo, hi = wilson(successes, n)
+    return f"{successes / n:.0%} (95% CI {lo:.0%}-{hi:.0%})"
 
 
 async def measure_reliability(runs: int) -> list[dict]:
+    """Run the reference solver once per seed and record outcome and wall-clock time."""
     env = ArtifactRelayEnv(in_process=True)
     rows: list[dict] = []
     try:
-        for i in range(1, runs + 1):
-            t0 = time.perf_counter()
-            obs = await solve(env)
-            dt = time.perf_counter() - t0
+        for seed in range(runs):
+            start = time.perf_counter()
+            obs = await solve(env, seed=seed)
             rows.append(
                 {
-                    "run": i,
+                    "seed": seed,
                     "solved": obs["grade"]["solved"],
                     "score": obs["grade"]["score"],
                     "turns": obs["turns_used"],
-                    "seconds": round(dt, 3),
+                    "seconds": round(time.perf_counter() - start, 3),
                 }
             )
     finally:
@@ -42,148 +73,200 @@ async def measure_reliability(runs: int) -> list[dict]:
     return rows
 
 
-async def measure_difficulty(
+async def rollouts(
     runs: int, p_wander: float, p_insight: float, turn_budget: int | None = None
 ) -> list[RolloutResult]:
+    """Seeded scripted-agent episodes on instances 0..runs-1."""
     env = ArtifactRelayEnv(in_process=True, turn_budget=turn_budget)
-    results: list[RolloutResult] = []
     try:
-        for seed in range(runs):
-            agent = StochasticAgent(seed=seed, p_wander=p_wander, p_insight=p_insight)
-            results.append(await agent.run(env))
+        return [await StochasticAgent(seed, p_wander, p_insight).run(env) for seed in range(runs)]
     finally:
         await env.close()
-    return results
 
 
-# Difficulty vs turn budget — shows the gradient as the task tightens.
-async def measure_curve(
-    runs: int, p_wander: float, p_insight: float, budgets: tuple[int, ...]
-) -> str:
-    lines = ["| Turn budget | Solve rate | Failure rate |", "|---:|---:|---:|"]
-    for b in budgets:
-        results = await measure_difficulty(runs, p_wander, p_insight, turn_budget=b)
-        solved = sum(1 for r in results if r.solved)
-        lines.append(f"| {b} | {solved / runs:.0%} | {(runs - solved) / runs:.0%} |")
+def _solved(results: list[RolloutResult]) -> int:
+    return sum(r.solved for r in results)
+
+
+def reliability_section(rows: list[dict]) -> tuple[str, dict]:
+    times = [r["seconds"] for r in rows]
+    stats = {
+        "ok": sum(r["solved"] for r in rows),
+        "n": len(rows),
+        "max_s": max(times),
+        "mean_s": round(statistics.mean(times), 3),
+        "min_turns": min(r["turns"] for r in rows),
+        "max_turns": max(r["turns"] for r in rows),
+    }
+    lines = ["| Seed | Solved | Score | Turns | Seconds |", "|---:|:---:|---:|---:|---:|"]
+    lines += [
+        f"| {r['seed']} | {'yes' if r['solved'] else 'NO'} | {r['score']} | "
+        f"{r['turns']} | {r['seconds']} |"
+        for r in rows
+    ]
+    return "\n".join(lines), stats
+
+
+def difficulty_section(results: list[RolloutResult]) -> str:
+    lines = [
+        "| Seed | Solved | Turns | Reward | Highest stage | Outcome |",
+        "|---:|:---:|---:|---:|:---|:---|",
+    ]
+    lines += [
+        f"| {i} | {'yes' if r.solved else 'no'} | {r.turns_used} | {r.reward} | "
+        f"{r.highest_stage or '-'} | {r.failure_reason} |"
+        for i, r in enumerate(results)
+    ]
     return "\n".join(lines)
 
 
-def _fmt_reliability(rows: list[dict]) -> tuple[str, dict]:
-    solved = sum(1 for r in rows if r["solved"])
-    times = [r["seconds"] for r in rows]
-    summary = {
-        "successes": solved,
-        "runs": len(rows),
-        "max_seconds": max(times),
-        "mean_seconds": round(statistics.mean(times), 3),
-    }
-    lines = ["| Run | Solved | Score | Turns | Seconds |", "|---:|:---:|---:|---:|---:|"]
-    for r in rows:
-        mark = "✅" if r["solved"] else "❌"
-        lines.append(f"| {r['run']} | {mark} | {r['score']} | {r['turns']} | {r['seconds']} |")
-    return "\n".join(lines), summary
+async def sweep_insight(runs: int, p_wander: float, values: tuple[float, ...]) -> str:
+    lines = ["| p_insight | Solve rate | Mean turns when solved |", "|---:|:---|---:|"]
+    for p in values:
+        results = await rollouts(runs, p_wander, p)
+        turns = [r.turns_used for r in results if r.solved]
+        mean_turns = f"{statistics.mean(turns):.1f}" if turns else "-"
+        lines.append(f"| {p:.2f} | {_rate_with_ci(_solved(results), runs)} | {mean_turns} |")
+    return "\n".join(lines)
 
 
-def _fmt_difficulty(results: list[RolloutResult]) -> tuple[str, dict]:
-    n = len(results)
-    solved = sum(1 for r in results if r.solved)
-    turns_solved = [r.turns_used for r in results if r.solved]
-    rewards = [r.reward for r in results]
-    fail_hist: dict[str, int] = {}
-    for r in results:
-        if not r.solved:
-            fail_hist[r.failure_stage or "none"] = fail_hist.get(r.failure_stage or "none", 0) + 1
-    summary = {
-        "runs": n,
-        "solved": solved,
-        "solve_rate": round(solved / n, 3) if n else 0.0,
-        "failure_rate": round((n - solved) / n, 3) if n else 0.0,
-        "mean_turns_solved": round(statistics.mean(turns_solved), 2) if turns_solved else None,
-        "median_turns_solved": statistics.median(turns_solved) if turns_solved else None,
-        "mean_reward": round(statistics.mean(rewards), 2) if rewards else 0.0,
-        "failure_stage_histogram": fail_hist,
-    }
-    lines = [
-        "| Seed | Solved | Turns | Reward | Highest stage | Failure reason |",
-        "|---:|:---:|---:|---:|:---|:---|",
-    ]
-    for i, r in enumerate(results):
-        lines.append(
-            f"| {i} | {'✅' if r.solved else '❌'} | {r.turns_used} | {r.reward} | "
-            f"{r.highest_stage or '-'} | {r.failure_reason} |"
+async def sweep_budget(
+    runs: int, p_wander: float, p_insight: float, budgets: tuple[int, ...]
+) -> str:
+    lines = ["| Turn budget | Solve rate |", "|---:|:---|"]
+    for budget in budgets:
+        results = await rollouts(runs, p_wander, p_insight, turn_budget=budget)
+        lines.append(f"| {budget} | {_rate_with_ci(_solved(results), runs)} |")
+    return "\n".join(lines)
+
+
+def llm_section() -> tuple[str, list[dict]]:
+    if not LLM_LOG.exists():
+        return (
+            "No real-model run is recorded. Run `uv run python -m agents.llm_agent` with a "
+            "key in `.env`, then regenerate this report.",
+            [],
         )
-    return "\n".join(lines), summary
-
-
-def _verdict(rel: dict, diff: dict) -> str:
-    ok_rel = rel["successes"] >= 14 and rel["max_seconds"] < 300
-    ok_band = diff["failure_rate"] < 0.40 and diff["failure_rate"] <= 0.80
-    return (
-        f"- Reliability target (>=14/16 & <5min): **{'PASS' if ok_rel else 'REVIEW'}** "
-        f"({rel['successes']}/{rel['runs']}, max {rel['max_seconds']}s)\n"
-        f"- Difficulty band (solve>=60%, fail<40%): **{'PASS' if ok_band else 'REVIEW'}** "
-        f"(solve {diff['solve_rate']:.0%}, fail {diff['failure_rate']:.0%})"
+    rows = [json.loads(line) for line in LLM_LOG.read_text(encoding="utf-8").splitlines() if line]
+    if not rows:
+        return "The rollout log exists but is empty.", []
+    lines = [
+        "| Seed | Model | Solved | Score | Invalid replies | Stages reached |",
+        "|---:|:---|:---:|---:|---:|:---|",
+    ]
+    lines += [
+        f"| {r['seed']} | {r['model']} | {'yes' if r['solved'] else 'no'} | {r['score']} | "
+        f"{r['invalid_replies']} | {len(r['reached'])} |"
+        for r in rows
+    ]
+    n, ok = len(rows), sum(r["solved"] for r in rows)
+    mean_score = statistics.mean(r["score"] for r in rows)
+    lines.append("")
+    lines.append(
+        f"**{ok}/{n} solved ({_rate_with_ci(ok, n)}), mean score {mean_score:.0f}/100.** "
+        "With this few episodes the interval is wide; treat it as a sanity check, not a rate."
     )
+    return "\n".join(lines), rows
+
+
+def verdict(rel: dict, solved: int, n: int) -> str:
+    rate = solved / n
+    checks = [
+        (
+            rel["ok"] >= RELIABILITY_TARGET and rel["max_s"] < SOLVE_TIME_LIMIT_S,
+            f"Reliability: reference solver {rel['ok']}/{rel['n']} (need >= {RELIABILITY_TARGET}), "
+            f"slowest run {rel['max_s']}s (need < {SOLVE_TIME_LIMIT_S}s)",
+        ),
+        (
+            rel["min_turns"] > 2,
+            f"Not trivial: shortest reference solve takes {rel['min_turns']} turns (need > 2)",
+        ),
+        (
+            n >= MIN_ROLLOUTS and rate >= SOLVE_TARGET,
+            f"Difficulty band (scripted proxy): solve rate {rate:.0%} over {n} rollouts "
+            f"(need >= {SOLVE_TARGET:.0%} over >= {MIN_ROLLOUTS} rollouts)",
+        ),
+    ]
+    return "\n".join(f"- {'PASS' if ok else 'FAIL'}: {text}" for ok, text in checks)
 
 
 async def _main() -> int:
     parser = argparse.ArgumentParser(description="Calibrate Artifact Relay.")
-    parser.add_argument("--runs", type=int, default=16)
-    parser.add_argument("--p-wander", type=float, default=0.45)
-    parser.add_argument("--p-insight", type=float, default=0.15)
+    parser.add_argument("--runs", type=int, default=16, help="rollouts for the headline tables")
+    parser.add_argument("--sweep-runs", type=int, default=100, help="rollouts per sweep cell")
+    parser.add_argument("--p-wander", type=float, default=0.3)
+    parser.add_argument("--p-insight", type=float, default=0.25)
     args = parser.parse_args()
 
     rel_rows = await measure_reliability(args.runs)
-    rel_table, rel_summary = _fmt_reliability(rel_rows)
-    diff_results = await measure_difficulty(args.runs, args.p_wander, args.p_insight)
-    diff_table, diff_summary = _fmt_difficulty(diff_results)
-    curve_table = await measure_curve(args.runs, args.p_wander, args.p_insight, (16, 12, 10, 8))
+    rel_table, rel = reliability_section(rel_rows)
 
-    rel_line = (
-        f"**Summary:** {rel_summary['successes']}/{rel_summary['runs']} solved · "
-        f"mean {rel_summary['mean_seconds']}s · max {rel_summary['max_seconds']}s."
+    proxy = await rollouts(args.runs, args.p_wander, args.p_insight)
+    proxy_solved = _solved(proxy)
+    proxy_turns = [r.turns_used for r in proxy if r.solved]
+    proxy_mean_turns = f"{statistics.mean(proxy_turns):.1f}" if proxy_turns else "n/a"
+
+    insight_table = await sweep_insight(
+        args.sweep_runs, args.p_wander, (0.10, 0.15, 0.25, 0.40, 0.60, 1.00)
     )
-    diff_line = (
-        f"**Summary:** solve rate {diff_summary['solve_rate']:.0%} · "
-        f"failure rate {diff_summary['failure_rate']:.0%} · "
-        f"mean turns (solved) {diff_summary['mean_turns_solved']} · "
-        f"median {diff_summary['median_turns_solved']} · mean reward {diff_summary['mean_reward']}."
+    budget_table = await sweep_budget(
+        args.sweep_runs, args.p_wander, args.p_insight, (16, 14, 12, 10, 8)
     )
-    hist = diff_summary["failure_stage_histogram"]
+    llm_text, _ = llm_section()
 
-    report = f"""# Calibration Report — Artifact Relay
+    report = f"""# Calibration report
 
-_All numbers below are measured from actual runs of this repository, fully offline._
+Every number here is produced by `uv run python -m scripts.calibrate` (plus, for the last
+section, `uv run python -m agents.llm_agent`). Nothing is filled in by hand. The three
+sections measure different things and should not be blended into one claim.
 
-## 1. Environment reliability (deterministic reference solver)
+## 1. Environment reliability: reference solver, {args.runs} instances
 
-Golden-path solver run {args.runs} times. Target: >= 14/16 successes, each < 5 min.
+The solver goes through the same `env.step()` actions an agent gets, on seeds
+0-{args.runs - 1}. Timing is in-process (ASGI, no network).
 
 {rel_table}
 
-{rel_line}
+**{rel["ok"]}/{rel["n"]} solved**, {rel["min_turns"]}-{rel["max_turns"]} turns,
+mean {rel["mean_s"]}s, slowest {rel["max_s"]}s.
 
-## 2. Difficulty band (stochastic reference agent)
+## 2. Difficulty proxy: scripted agent, {args.runs} rollouts at a 16-turn budget
 
-Competent-but-imperfect agent (`p_wander={args.p_wander}`, `p_insight={args.p_insight}`),
-{args.runs} seeded rollouts at a 16-turn budget. Target: solve >= 60% (failure < 40%).
+This is a simulation, not evidence about real models. The agent knows the intended path
+but is fallible in two ways whose probabilities I chose myself:
 
-{diff_table}
+- `p_wander` = {args.p_wander}: before logging in, it may waste a turn on an irrelevant URL.
+- `p_insight` = {args.p_insight}: at the crux, each turn it has only this chance of thinking
+  to decode the ticket; otherwise it tries something plausible that goes nowhere.
 
-{diff_line}
+{difficulty_section(proxy)}
 
-Failure-stage histogram: `{hist}`
+**Solve rate {_rate_with_ci(proxy_solved, args.runs)}**, mean turns when solved {proxy_mean_turns}.
 
-## 3. Difficulty curve (solve rate vs turn budget)
+### How much the assumption matters
 
-Same agent, varying the turn budget. Tightening the budget lowers the solve rate,
-demonstrating a genuine difficulty gradient and reward signal (not a cliff).
+Solve rate as `p_insight` varies ({args.sweep_runs} rollouts per row, `p_wander` fixed).
+If you disagree with my `p_insight`, read the answer off this table instead.
 
-{curve_table}
+{insight_table}
 
-## 4. Verdict
+### Turn budget
 
-{_verdict(rel_summary, diff_summary)}
+Same agent, tighter budgets ({args.sweep_runs} rollouts per row). The rate falls
+gradually rather than off a cliff, which is what a usable difficulty knob looks like.
+
+{budget_table}
+
+## 3. A real model
+
+{llm_text}
+
+## Verdict against the assignment's targets
+
+{verdict(rel, proxy_solved, args.runs)}
+
+The difficulty line is only as strong as the proxy's assumptions (section 2). The
+real-model section is the honest check on it.
 """
     REPORT_PATH.write_text(report, encoding="utf-8")
     print(report)

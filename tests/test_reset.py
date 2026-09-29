@@ -1,37 +1,50 @@
-# Reset semantics: fresh attempt, cleared state, stale tickets rejected.
+"""Reset semantics: fresh attempt, cleared state, stale credentials rejected."""
 
 from __future__ import annotations
 
 import httpx
 
-from tests.conftest import login
-from tests.test_challenge import _redirect
+from tests.conftest import SEED, admin, instance, login, redirect
 
 
 async def test_reset_clears_state_and_invalidates_tickets(client: httpx.AsyncClient) -> None:
-    # Solve up to reading the protected artifact.
     await client.get("/releases")
-    token = await login(client)
-    h = {"Authorization": f"Bearer {token}"}
+    headers = await login(client)
+    _flag, public, _restricted, holder = instance()
     ticket = (
-        await client.post("/tickets", json={"artifact_id": "artifact-101-notes"}, headers=h)
+        await client.post(
+            "/tickets", json={"artifact_id": public["release_notes.txt"]}, headers=headers
+        )
     ).json()["ticket"]
-    tampered = _redirect(ticket, "artifact-102-security-review")
+    tampered = redirect(ticket, holder)
     assert (await client.get("/relay", params={"ticket": tampered})).status_code == 200
 
-    before = (await client.get("/_internal/status")).json()
+    before = (await client.get("/_internal/status", headers=admin())).json()
     assert before["events"]
 
-    # Reset: new attempt, empty events.
-    new_attempt = (await client.post("/_internal/reset")).json()["attempt_id"]
-    after = (await client.get("/_internal/status")).json()
-    assert after["attempt_id"] == new_attempt
-    assert after["attempt_id"] != before["attempt_id"]
+    reset = await client.post("/_internal/reset", json={"seed": SEED}, headers=admin())
+    after = (await client.get("/_internal/status", headers=admin())).json()
+    assert after["attempt_id"] == reset.json()["attempt_id"] != before["attempt_id"]
     assert after["events"] == []
 
-    # The old ticket is now stale and must be rejected.
-    stale = await client.get("/relay", params={"ticket": tampered})
-    assert stale.status_code == 410
+    assert (await client.get("/relay", params={"ticket": tampered})).status_code == 410
+    assert (await client.get("/artifacts", headers=headers)).status_code == 401
 
-    # The old session token is also gone.
-    assert (await client.get("/artifacts", headers=h)).status_code == 401
+
+async def test_reset_with_a_seed_is_reproducible(client: httpx.AsyncClient) -> None:
+    async def artifacts_for(seed: int) -> list[dict]:
+        await client.post("/_internal/reset", json={"seed": seed}, headers=admin())
+        headers = await login(client)
+        return (await client.get("/artifacts", headers=headers)).json()["artifacts"]
+
+    first = await artifacts_for(11)
+    assert await artifacts_for(11) == first
+    assert await artifacts_for(12) != first
+
+
+async def test_reset_without_a_seed_picks_a_new_instance(client: httpx.AsyncClient) -> None:
+    seeds = set()
+    for _ in range(3):
+        r = await client.post("/_internal/reset", headers=admin())
+        seeds.add(r.json()["seed"])
+    assert len(seeds) == 3

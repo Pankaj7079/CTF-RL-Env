@@ -16,13 +16,17 @@ class Base(DeclarativeBase):
     pass
 
 
-# One solve attempt; resetting the challenge creates a fresh one.
+# One solve attempt. Resetting creates a fresh one; `seed` fully determines the
+# instance (which artifact holds the flag, and the flag itself), so a run can be
+# reproduced from its logs.
 class Attempt(Base):
     __tablename__ = "attempts"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    seed: Mapped[int] = mapped_column(Integer, default=0)
+    flag: Mapped[str] = mapped_column(String(64), default="")
 
     events: Mapped[list[ChallengeEvent]] = relationship(
         back_populates="attempt", cascade="all, delete-orphan"
@@ -40,8 +44,7 @@ class Session(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
-# A release artifact. Quarantined ones are restricted; one holds the flag.
-# The flaw: the relay checks scope only, never re-checks `quarantined`.
+# A release artifact. Quarantined ones are restricted; exactly one holds the flag.
 class Artifact(Base):
     __tablename__ = "artifacts"
 

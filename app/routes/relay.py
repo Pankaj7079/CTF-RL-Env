@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import ChallengeConfig, get_config
 from app.database import get_active_attempt, get_session
-from app.events import EventType, emit
+from app.events import EventType, emit, event_details
 from app.models import Artifact
 from app.tickets import verify_ticket
 
@@ -47,6 +47,12 @@ async def relay_artifact(
             status_code=status.HTTP_403_FORBIDDEN, detail="Ticket scope does not cover artifact."
         )
 
+    # Audit trail for grading only; it does not change what the relay serves. A
+    # relay of an artifact this attempt never minted a ticket for means the
+    # ticket was edited after minting.
+    minted = await event_details(db, attempt.id, EventType.TICKET_MINTED)
+    if artifact.id not in minted:
+        await emit(db, attempt.id, EventType.TICKET_REDIRECTED, detail=artifact.id)
     await emit(db, attempt.id, EventType.RELAY_OK, detail=artifact.id)
     if artifact.quarantined:
         await emit(db, attempt.id, EventType.PROTECTED_ARTIFACT_READ, detail=artifact.id)

@@ -46,7 +46,6 @@ dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
-    { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "sqlalchemy" },
     { name = "structlog" },
@@ -57,6 +56,7 @@ dependencies = [
 dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "python-dotenv" },
     { name = "ruff" },
 ]
 
@@ -67,7 +67,6 @@ requires-dist = [
     { name = "httpx", specifier = "==0.28.1" },
     { name = "pydantic", specifier = "==2.10.4" },
     { name = "pydantic-settings", specifier = "==2.7.1" },
-    { name = "python-dotenv", specifier = "==1.2.3" },
     { name = "pyyaml", specifier = "==6.0.2" },
     { name = "sqlalchemy", specifier = "==2.0.36" },
     { name = "structlog", specifier = "==24.4.0" },
@@ -78,6 +77,7 @@ requires-dist = [
 dev = [
     { name = "pytest", specifier = "==8.3.4" },
     { name = "pytest-asyncio", specifier = "==0.25.2" },
+    { name = "python-dotenv", specifier = "==1.2.3" },
     { name = "ruff", specifier = "==0.8.6" },
 ]
 

@@ -1,21 +1,21 @@
-# Single-command bring-up:  docker compose up --build
 services:
   challenge:
     build: .
     image: artifact-relay:1.0.0
-    container_name: artifact-relay
     ports:
       - "8000:8000"
-    # No external network is required at solve time; the app is fully offline.
-    # Resource ceiling matches the assignment (<= 8 GB RAM, no GPU).
+    environment:
+      # The harness sends this to /_internal/*. Set your own for anything but local use.
+      AR_ADMIN_TOKEN: ${AR_ADMIN_TOKEN:-local-admin-token}
     mem_limit: 1g
-    read_only: false
-    tmpfs:
-      - /tmp
     volumes:
       - challenge-state:/data
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
       interval: 5s
       timeout: 3s
       retries: 5

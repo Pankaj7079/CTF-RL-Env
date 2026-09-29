@@ -1,20 +1,30 @@
-# Meta routes: banner, health, attempt status, and reset. /_internal/status feeds
-# the env wrapper and grader the event log + derived state (never the flag/content).
+# Banner and health are public. /_internal/* is the harness channel (grading
+# status and reset): admin token required and hidden from the OpenAPI schema, so
+# an agent browsing /docs never learns it exists.
 
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_active_attempt, get_session, reset_challenge
+from app.deps import require_admin
 from app.events import event_types_for_attempt
 from app.schemas import ResetResponse, StatusResponse
-from app.state import project_state
 
 router = APIRouter(tags=["meta"])
+internal = APIRouter(
+    prefix="/_internal",
+    dependencies=[Depends(require_admin)],
+    include_in_schema=False,
+)
 
 
-# Public banner — the agent's discovery entry point.
+class ResetRequest(BaseModel):
+    seed: int | None = None
+
+
 @router.get("/")
 async def root() -> dict[str, str]:
     return {
@@ -30,19 +40,16 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-# Recorded events + derived state for the active attempt (used by env/grader).
-@router.get("/_internal/status", response_model=StatusResponse)
+@internal.get("/status", response_model=StatusResponse)
 async def status(
     db: AsyncSession = Depends(get_session),  # noqa: TC002, B008
 ) -> StatusResponse:
     attempt = await get_active_attempt(db)
     events = await event_types_for_attempt(db, attempt.id)
-    state = project_state(events)
-    return StatusResponse(attempt_id=attempt.id, events=sorted(events), state=state.model_dump())
+    return StatusResponse(attempt_id=attempt.id, seed=attempt.seed, events=sorted(events))
 
 
-# Start a fresh, clean attempt.
-@router.post("/_internal/reset", response_model=ResetResponse)
-async def reset() -> ResetResponse:
-    attempt_id = await reset_challenge()
-    return ResetResponse(attempt_id=attempt_id)
+@internal.post("/reset", response_model=ResetResponse)
+async def reset(body: ResetRequest | None = None) -> ResetResponse:
+    attempt = await reset_challenge(body.seed if body else None)
+    return ResetResponse(attempt_id=attempt.id, seed=attempt.seed)

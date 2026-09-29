@@ -1,15 +1,10 @@
 __pycache__/
 *.pyc
 .venv/
-*.db
 .pytest_cache/
 .ruff_cache/
-.uv/
 
-# Private working material — never published (kept locally only).
-info/
+# Local state and secrets
 .env
-
-# Keep only the README in the repo; other .md files stay local.
-*.md
-!README.md
+*.db
+runs/

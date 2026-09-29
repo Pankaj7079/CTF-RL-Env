@@ -8,7 +8,6 @@ import secrets
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import ChallengeConfig, get_config
 from app.database import get_active_attempt, get_session
 from app.events import EventType, emit, event_types_for_attempt
 from app.schemas import FlagRequest, FlagResponse
@@ -20,10 +19,9 @@ router = APIRouter(tags=["flag"])
 async def submit_flag(
     body: FlagRequest,
     db: AsyncSession = Depends(get_session),  # noqa: TC002, B008
-    config: ChallengeConfig = Depends(get_config),  # noqa: TC002, B008
 ) -> FlagResponse:
     attempt = await get_active_attempt(db)
-    matches = secrets.compare_digest(body.flag.strip(), config.flag)
+    matches = secrets.compare_digest(body.flag.strip().encode(), attempt.flag.encode())
     if not matches:
         return FlagResponse(correct=False, message="Incorrect flag.")
 

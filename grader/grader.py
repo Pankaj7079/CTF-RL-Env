@@ -1,6 +1,5 @@
-# The grader: turn a recorded event set into a cumulative, monotonic score.
-# Checks are monotone (events never disappear) and scores non-negative, so total
-# reward only ever goes up across a solve — the dense signal the task needs.
+# The grader: turn a recorded event set into a score. Events never disappear and
+# stage scores are non-negative, so the score is monotone over an attempt.
 
 from __future__ import annotations
 
@@ -71,8 +70,12 @@ class GradeResult:
         }
 
 
-# Sum the score of every stage whose check passes; solved = all stages reached.
 def grade(events: set[str], rubric: Rubric | None = None) -> GradeResult:
+    """Sum the score of every stage whose check passes.
+
+    ``solved`` means the final stage (the flag) was reached. Skipping an earlier,
+    non-essential stage such as listing releases costs points but not the solve.
+    """
     rubric = rubric or load_rubric()
     score = 0
     reached: list[str] = []
@@ -82,7 +85,7 @@ def grade(events: set[str], rubric: Rubric | None = None) -> GradeResult:
             score += stage.score
             reached.append(stage.id)
             highest = stage.id
-    solved = bool(rubric.stages) and reached == [s.id for s in rubric.stages]
+    solved = bool(rubric.stages) and rubric.stages[-1].id in reached
     return GradeResult(
         score=score,
         max_score=rubric.max_score,

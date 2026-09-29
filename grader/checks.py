@@ -22,6 +22,10 @@ def preview_flow_used(events: set[str]) -> bool:
     return EventType.TICKET_MINTED in events and EventType.RELAY_OK in events
 
 
+def ticket_redirected(events: set[str]) -> bool:
+    return EventType.TICKET_REDIRECTED in events
+
+
 def protected_artifact_read(events: set[str]) -> bool:
     return EventType.PROTECTED_ARTIFACT_READ in events
 
@@ -35,6 +39,7 @@ CHECKS: dict[str, CheckFn] = {
     "releases_listed": releases_listed,
     "session_established": session_established,
     "preview_flow_used": preview_flow_used,
+    "ticket_redirected": ticket_redirected,
     "protected_artifact_read": protected_artifact_read,
     "flag_correct": flag_correct,
 }

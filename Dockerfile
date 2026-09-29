@@ -1,33 +1,28 @@
-# Pinned base for a deterministic build.
-FROM python:3.12.8-slim AS runtime
+# The image holds only the challenge service and its grader. The solver, the
+# agents and the tests stay out, so nothing in the container helps a solve.
+FROM python:3.12.8-slim
 
-# System hardening / smaller image.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
+    PATH="/app/.venv/bin:$PATH" \
     AR_DATABASE_URL=sqlite+aiosqlite:////data/artifact_relay.db
 
 WORKDIR /app
 
-# Pinned uv for reproducible dependency resolution.
 RUN pip install --no-cache-dir uv==0.10.0
 
-# Install third-party dependencies first (cached layer), without the project.
-COPY pyproject.toml uv.lock README.md ./
+COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-# Copy the application, then install the project itself.
 COPY app ./app
 COPY grader ./grader
-COPY solver ./solver
-COPY agents ./agents
-COPY scripts ./scripts
-RUN uv sync --frozen --no-dev
 
-# Writable state dir for the SQLite file.
-RUN mkdir -p /data
+RUN useradd --system --no-create-home relay \
+    && mkdir /data \
+    && chown relay /data
+USER relay
 
 EXPOSE 8000
 
-# Single documented start command.
-CMD ["uv", "run", "--no-dev", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# uvicorn puts the working directory on sys.path, so the packages import in place.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

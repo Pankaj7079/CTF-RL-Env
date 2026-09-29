@@ -57,9 +57,10 @@ class FlagResponse(BaseModel):
 
 class StatusResponse(BaseModel):
     attempt_id: str
+    seed: int
     events: list[str]
-    state: dict
 
 
 class ResetResponse(BaseModel):
     attempt_id: str
+    seed: int
