@@ -1,12 +1,3 @@
-# Preview tickets: wire format is  <base64url(json)>.<hmac-sha256>
-# payload = {"scope", "aid", "nonce", "attempt"}.
-#
-# THE FLAW: the signature is computed over `scope` ONLY, not `aid`. So a ticket
-# minted for an allowed artifact can have its `aid` rewritten to any other
-# artifact in the same scope (including a quarantined one) and it still verifies.
-# Classic confused-deputy / BOLA: what's authenticated (scope) is decoupled from
-# what's acted on (aid). No crypto is broken.
-
 from __future__ import annotations
 
 import base64

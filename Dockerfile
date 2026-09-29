@@ -5,7 +5,7 @@ FROM python:3.12.8-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH" \
-    AR_DATABASE_URL=sqlite+aiosqlite:////data/artifact_relay.db
+    CTF_DATABASE_URL=sqlite+aiosqlite:////data/ctf_rl_env.db
 
 WORKDIR /app
 

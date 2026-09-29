@@ -1,4 +1,4 @@
-# /flag — submit the flag (reward stage 5). Accepted only if it matches AND this
+# /flag — submit the flag (flag stage). Accepted only if it matches AND this
 # attempt actually read the protected artifact — so a guessed/leaked string fails.
 
 from __future__ import annotations

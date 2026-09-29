@@ -10,7 +10,7 @@ admin-token channel, which agent-driven requests never use.
 
 in_process=True talks to a private app over an ASGI transport (offline, used by
 the tests and calibration). base_url=... drives a running container, in which
-case AR_ADMIN_TOKEN must match the container's.
+case CTF_ADMIN_TOKEN must match the container's.
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ def _b64(op: str, data: str) -> dict[str, Any]:
     return {"ok": True, "body": {"result": result}}
 
 
-class ArtifactRelayEnv:
+class CTFRLEnv:
     """One agent-facing episode loop over the challenge service."""
 
     def __init__(self, base_url: str | None = None, in_process: bool = True) -> None:
@@ -88,7 +88,7 @@ class ArtifactRelayEnv:
         r = await client.post("/_internal/reset", json={"seed": seed}, headers=self._admin)
         if r.status_code == 403:
             raise RuntimeError(
-                "Admin token rejected: set AR_ADMIN_TOKEN to the value the server runs with."
+                "Admin token rejected: set CTF_ADMIN_TOKEN to the value the server runs with."
             )
         r.raise_for_status()
         self._token = None

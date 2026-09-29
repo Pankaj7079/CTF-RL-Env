@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from agents.stochastic_agent import StochasticAgent
-from app.env import ArtifactRelayEnv
+from app.env import CTFRLEnv
 
 
 async def _run(seed: int, p_wander: float, p_insight: float):
-    env = ArtifactRelayEnv(in_process=True)
+    env = CTFRLEnv(in_process=True)
     try:
         return await StochasticAgent(seed, p_wander, p_insight).run(env)
     finally:

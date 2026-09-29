@@ -1,15 +1,3 @@
-"""A generator that walks the reference exploit one HTTP call at a time.
-
-Mirrors ``solver/reference_solution.py`` exactly, but pauses after each action
-so a UI can show the request and response before sending the next one.
-
-    gen = guided_walkthrough(username, password)
-    label, explain, action = next(gen)             # first step
-    obs = await env.step(action)
-    label, explain, action = gen.send(obs)          # next step, using obs
-    ...                                              # until StopIteration
-"""
-
 from __future__ import annotations
 
 import json

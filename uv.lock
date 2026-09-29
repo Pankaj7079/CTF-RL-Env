@@ -53,53 +53,6 @@ wheels = [
 ]
 
 [[package]]
-name = "artifact-relay"
-version = "1.0.0"
-source = { editable = "." }
-dependencies = [
-    { name = "aiosqlite" },
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "pyyaml" },
-    { name = "sqlalchemy" },
-    { name = "structlog" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.dev-dependencies]
-demo = [
-    { name = "streamlit" },
-]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "aiosqlite", specifier = "==0.20.0" },
-    { name = "fastapi", specifier = "==0.115.6" },
-    { name = "httpx", specifier = "==0.28.1" },
-    { name = "pydantic", specifier = "==2.10.4" },
-    { name = "pydantic-settings", specifier = "==2.7.1" },
-    { name = "pyyaml", specifier = "==6.0.2" },
-    { name = "sqlalchemy", specifier = "==2.0.36" },
-    { name = "structlog", specifier = "==24.4.0" },
-    { name = "uvicorn", extras = ["standard"], specifier = "==0.34.0" },
-]
-
-[package.metadata.requires-dev]
-demo = [{ name = "streamlit", specifier = "==1.41.1" }]
-dev = [
-    { name = "pytest", specifier = "==8.3.4" },
-    { name = "pytest-asyncio", specifier = "==0.25.2" },
-    { name = "ruff", specifier = "==0.8.6" },
-]
-
-[[package]]
 name = "attrs"
 version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -192,6 +145,53 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697, upload-time = "2022-10-25T02:36:22.414Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335, upload-time = "2022-10-25T02:36:20.889Z" },
+]
+
+[[package]]
+name = "ctf-rl-env"
+version = "1.0.0"
+source = { editable = "." }
+dependencies = [
+    { name = "aiosqlite" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "pyyaml" },
+    { name = "sqlalchemy" },
+    { name = "structlog" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.dev-dependencies]
+demo = [
+    { name = "streamlit" },
+]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiosqlite", specifier = "==0.20.0" },
+    { name = "fastapi", specifier = "==0.115.6" },
+    { name = "httpx", specifier = "==0.28.1" },
+    { name = "pydantic", specifier = "==2.10.4" },
+    { name = "pydantic-settings", specifier = "==2.7.1" },
+    { name = "pyyaml", specifier = "==6.0.2" },
+    { name = "sqlalchemy", specifier = "==2.0.36" },
+    { name = "structlog", specifier = "==24.4.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = "==0.34.0" },
+]
+
+[package.metadata.requires-dev]
+demo = [{ name = "streamlit", specifier = "==1.41.1" }]
+dev = [
+    { name = "pytest", specifier = "==8.3.4" },
+    { name = "pytest-asyncio", specifier = "==0.25.2" },
+    { name = "ruff", specifier = "==0.8.6" },
 ]
 
 [[package]]

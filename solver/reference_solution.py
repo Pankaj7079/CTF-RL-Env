@@ -1,11 +1,3 @@
-"""Reference solution: the shortest known valid path, used to check that the
-environment is reliable (the intended solve works every time).
-
-It goes through the same env.step() actions an agent gets, including the base64
-codec, so its turn count is what a tool-limited agent really needs. It never
-reads the database, the source or the signing secret.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -15,12 +7,12 @@ import re
 import sys
 from typing import Any
 
-from app.env import ArtifactRelayEnv
+from app.env import CTFRLEnv
 
 from grader.grader import load_rubric
 
 
-async def solve(env: ArtifactRelayEnv, seed: int | None = None) -> dict[str, Any]:
+async def solve(env: CTFRLEnv, seed: int | None = None) -> dict[str, Any]:
     """Run the intended path on the instance for ``seed``; return the last observation.
 
     The ticket signature covers only ``scope``, so a ticket minted for a public
@@ -62,9 +54,9 @@ async def solve(env: ArtifactRelayEnv, seed: int | None = None) -> dict[str, Any
 
 
 async def _main() -> int:
-    """Solve in-process, or against AR_BASE_URL if set. Exit 0 on success."""
-    base_url = os.environ.get("AR_BASE_URL")
-    env = ArtifactRelayEnv(base_url=base_url, in_process=base_url is None)
+    """Solve in-process, or against CTF_BASE_URL if set. Exit 0 on success."""
+    base_url = os.environ.get("CTF_BASE_URL")
+    env = CTFRLEnv(base_url=base_url, in_process=base_url is None)
     try:
         obs = await solve(env)
     finally:

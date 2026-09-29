@@ -1,4 +1,4 @@
-# Artifact Relay: staged reward rubric.
+# CTF-RL-Env: staged reward rubric.
 #
 # The server records an event only when something really happens (app/events.py).
 # A stage is reached when every event in its `events` list has been recorded for the
@@ -7,7 +7,7 @@
 # attempt; the per-step reward is the increase in this score. Nothing in this file
 # is executed.
 version: 3
-name: artifact-relay
+name: ctf-rl-env
 flag_regex: "flag\\{[a-z0-9_]+\\}"
 turn_budget: 16
 stages:

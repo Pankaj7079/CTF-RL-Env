@@ -1,12 +1,3 @@
-"""Interactive demo of the Artifact Relay environment — same reset()/step() the
-grader and reference solver use, driven from a browser instead of a script.
-
-Not part of the graded deliverable: it exists to make the interview walkthrough
-easier to follow. See demo/README.md for how to run it.
-
-    uv run --group demo streamlit run demo/streamlit_app.py
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -22,11 +13,11 @@ import streamlit as st
 # Must be set before app.config is imported anywhere, so the demo never touches
 # the same database file as `uv run python -m pytest` or a real docker run.
 os.environ.setdefault(
-    "AR_DATABASE_URL",
-    f"sqlite+aiosqlite:///{Path(tempfile.gettempdir()) / 'artifact_relay_demo.db'}",
+    "CTF_DATABASE_URL",
+    f"sqlite+aiosqlite:///{Path(tempfile.gettempdir()) / 'ctf_rl_env_demo.db'}",
 )
 
-from app.env import ArtifactRelayEnv  # noqa: E402
+from app.env import CTFRLEnv  # noqa: E402
 from scripts.calibrate import P_INSIGHT, P_WANDER, rollouts  # noqa: E402
 
 from demo.guided_steps import guided_walkthrough  # noqa: E402
@@ -34,7 +25,7 @@ from grader.grader import load_rubric  # noqa: E402
 
 RUBRIC = load_rubric()
 
-st.set_page_config(page_title="Artifact Relay — live demo", layout="wide")
+st.set_page_config(page_title="CTF-RL-Env — live demo", layout="wide")
 
 
 # --- one background event loop per browser session, so the httpx client (and
@@ -51,10 +42,10 @@ def run_async(coro: Any) -> Any:
     return asyncio.run_coroutine_threadsafe(coro, _loop()).result()
 
 
-def get_env() -> ArtifactRelayEnv:
+def get_env() -> CTFRLEnv:
     if "env" not in st.session_state:
-        base_url = os.environ.get("AR_BASE_URL")
-        st.session_state.env = ArtifactRelayEnv(base_url=base_url, in_process=base_url is None)
+        base_url = os.environ.get("CTF_BASE_URL")
+        st.session_state.env = CTFRLEnv(base_url=base_url, in_process=base_url is None)
         st.session_state.target = base_url or "in-process (offline, no Docker needed)"
     return st.session_state.env
 
@@ -93,7 +84,7 @@ def do_step(action: dict) -> None:
         st.session_state.guided_step = None
 
 
-st.title("Artifact Relay — live demo")
+st.title("CTF-RL-Env — live demo")
 st.caption(
     "The reviewer portal used for the CTF, driven through the same `reset()` / `step()` "
     "interface the grader and reference solver use — nothing here is a separate mock."

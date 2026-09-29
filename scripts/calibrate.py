@@ -16,7 +16,7 @@ import statistics
 import time
 
 from agents.stochastic_agent import RolloutResult, StochasticAgent
-from app.env import ArtifactRelayEnv
+from app.env import CTFRLEnv
 from solver.reference_solution import solve
 
 P_WANDER = 0.3
@@ -43,7 +43,7 @@ def rate_with_ci(successes: int, n: int) -> str:
 
 async def reliability(runs: int) -> list[dict]:
     """Run the reference solver once per seed and record outcome and wall-clock time."""
-    env = ArtifactRelayEnv(in_process=True)
+    env = CTFRLEnv(in_process=True)
     rows = []
     try:
         for seed in range(runs):
@@ -65,7 +65,7 @@ async def reliability(runs: int) -> list[dict]:
 
 async def rollouts(runs: int, p_wander: float, p_insight: float) -> list[RolloutResult]:
     """Seeded scripted-agent episodes on instances 0..runs-1."""
-    env = ArtifactRelayEnv(in_process=True)
+    env = CTFRLEnv(in_process=True)
     try:
         return [await StochasticAgent(seed, p_wander, p_insight).run(env) for seed in range(runs)]
     finally:
@@ -82,7 +82,7 @@ def mean_turns(results: list[RolloutResult]) -> str:
 
 
 async def main() -> int:
-    parser = argparse.ArgumentParser(description="Calibrate Artifact Relay.")
+    parser = argparse.ArgumentParser(description="Calibrate CTF-RL-Env.")
     parser.add_argument("--runs", type=int, default=16, help="rollouts for the headline tables")
     parser.add_argument("--sweep-runs", type=int, default=100, help="rollouts per sweep row")
     parser.add_argument("--p-wander", type=float, default=P_WANDER)

@@ -1,16 +1,3 @@
-"""A seeded, fallible scripted agent: a simulated proxy for a competent-but-imperfect solver.
-
-It walks the intended path but has two failure modes, both hand-set probabilities:
-
-* ``p_wander``: early on it may burn a turn on an irrelevant endpoint.
-* ``p_insight``: at the crux, each turn it only has this chance of thinking to
-  decode the ticket; otherwise it tries a plausible but useless move.
-
-The calibration numbers it produces are conditional on those two assumptions
-(scripts/calibrate.py shows how sensitive they are). It is a simulation, not a
-measurement of any real model.
-"""
-
 from __future__ import annotations
 
 import json
@@ -19,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.env import ArtifactRelayEnv
+from app.env import CTFRLEnv
 
 from grader.grader import load_rubric
 
@@ -68,7 +55,7 @@ class StochasticAgent:
         self.p_insight = p_insight
         self._flag_re = re.compile(load_rubric().flag_regex)
 
-    async def run(self, env: ArtifactRelayEnv) -> RolloutResult:
+    async def run(self, env: CTFRLEnv) -> RolloutResult:
         """Play one episode on the instance for this agent's seed."""
         user, password = env.reviewer_credentials()
         await env.reset(seed=self.seed)

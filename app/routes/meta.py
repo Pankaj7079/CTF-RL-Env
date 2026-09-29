@@ -28,7 +28,7 @@ class ResetRequest(BaseModel):
 @router.get("/")
 async def root() -> dict[str, str]:
     return {
-        "service": "Artifact Relay",
+        "service": "CTF-RL-Env",
         "description": "Internal software-artifact review portal.",
         "hint": "Reviewers authenticate at POST /login and browse GET /releases.",
         "docs": "/docs",

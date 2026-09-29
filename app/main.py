@@ -1,4 +1,4 @@
-# FastAPI app factory for the Artifact Relay challenge.
+# FastAPI app factory for the CTF-RL-Env challenge.
 
 from __future__ import annotations
 
@@ -18,13 +18,13 @@ log = get_logger(__name__)
 async def lifespan(_app: FastAPI):
     configure_logging()
     await init_db()
-    log.info("app.startup", service="artifact-relay")
+    log.info("app.startup", service="ctf-rl-env")
     yield
 
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="Artifact Relay",
+        title="CTF-RL-Env",
         version="1.0.0",
         description="An internal software-artifact review portal (CTF environment).",
         lifespan=lifespan,

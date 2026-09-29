@@ -1,9 +1,9 @@
-# Artifact Relay
+# CTF-RL-Env
 
-A web CTF (Track A) packaged as a resettable RL environment. An agent gets a low-privilege reviewer
-account on a small release-review portal and has 16 turns to find the flaw and read a restricted file
-that holds the flag. A programmatic grader scores progress in six stages, so the reward is dense and
-cannot be gamed by talking.
+A web CTF wrapped as a resettable RL environment. An agent gets a
+low-privilege account on a small release-review portal and 16 turns to find the bug, read a restricted
+file and submit the flag inside it. A grader scores progress in six stages from what the server actually
+recorded, so partial progress is rewarded and simply claiming success earns nothing.
 
 ## At a glance
 
@@ -27,11 +27,11 @@ Run the reference solution against the container (the token must match the one t
 compose defaults it to `local-admin-token`):
 
 ```bash
-AR_BASE_URL=http://localhost:8000 AR_ADMIN_TOKEN=local-admin-token uv run python -m solver.reference_solution
+CTF_BASE_URL=http://localhost:8000 CTF_ADMIN_TOKEN=local-admin-token uv run python -m solver.reference_solution
 ```
 
 ```powershell
-$env:AR_BASE_URL="http://localhost:8000"; $env:AR_ADMIN_TOKEN="local-admin-token"; uv run python -m solver.reference_solution
+$env:CTF_BASE_URL="http://localhost:8000"; $env:CTF_ADMIN_TOKEN="local-admin-token"; uv run python -m solver.reference_solution
 ```
 
 Without Docker (everything runs in-process, offline):
@@ -43,14 +43,14 @@ uv run python -m pytest                      # test suite
 uv run python -m scripts.calibrate           # prints every number in the Calibration section
 ```
 
-Optional browser demo (guided walkthrough, scripted-agent runs, free play; not part of grading):
+Browser demo 
 `uv run --group demo streamlit run demo/streamlit_app.py`
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    A["Agent<br/>LLM or script"] -- "action (JSON)" --> E["ArtifactRelayEnv<br/>app/env.py: reset / step"]
+    A["Agent<br/>LLM or script"] -- "action (JSON)" --> E["CTFRLEnv<br/>app/env.py: reset / step"]
     E -- "obs, reward, done" --> A
     E -- "agent traffic:<br/>/login /tickets /relay /flag" --> S["Challenge service<br/>FastAPI + SQLite, in Docker"]
     E -- "GET /_internal/status<br/>(admin token)" --> S
@@ -125,12 +125,12 @@ per attempt. Tickets from an earlier attempt return 410.
 ## Environment
 
 `reset(seed)` builds an instance from the seed: a fresh flag, and which restricted file holds it. There are 3
-public files and `1 + decoys` restricted ones (default 2, set by `AR_DECOY_QUARANTINE_COUNT`, 0 to 4). The
+public files and `1 + decoys` restricted ones (default 2, set by `CTF_DECOY_QUARANTINE_COUNT`, 0 to 4). The
 listing does not reveal the holder. Same seed gives the same instance; different seeds give different flags and
 layouts, so a memorised answer does not transfer.
 
 ```python
-env = ArtifactRelayEnv(in_process=True)        # or base_url="http://localhost:8000"
+env = CTFRLEnv(in_process=True)        # or base_url="http://localhost:8000"
 obs = await env.reset(seed=3)
 obs, reward, terminated, truncated, info = await env.step({"action": "list_releases"})
 ```
@@ -138,6 +138,18 @@ obs, reward, terminated, truncated, info = await env.step({"action": "list_relea
 Actions are named tools: `root`, `list_releases`, `login`, `list_artifacts`, `mint`, `relay`, `submit_flag`,
 `http_get`, `http_post`, and `b64` (URL-safe encode or decode, run locally, because base64 by hand is a poor
 thing for a task like this to test). After `login` the session token is attached automatically.
+
+## Configuration
+
+All settings are environment variables and all have working defaults.
+
+| Variable | Read by | Meaning |
+|---|---|---|
+| `CTF_ADMIN_TOKEN` | service and env | Guards `/_internal/*`. Random per process locally; compose sets `local-admin-token` |
+| `CTF_BASE_URL` | solver, demo | Drive a running container instead of the in-process app |
+| `CTF_DECOY_QUARANTINE_COUNT` | service | Extra restricted files that do not hold the flag (0 to 4, default 1) |
+| `CTF_TICKET_SECRET` | service | Ticket signing key. Random per process, so run a single worker or set it |
+| `CTF_DATABASE_URL` | service | SQLite location (`/data/ctf_rl_env.db` in the container) |
 
 ## Calibration
 
@@ -176,13 +188,12 @@ Measuring real models is the first thing I would do with more time.
 None: I built the environment and the reward, not a trained policy. It is a finite-horizon episodic MDP (horizon
 16, discrete tool actions) with a verifiable, rule-based reward. The per-step reward is
 `r_t = Φ(s_t) − Φ(s_{t−1})`, where Φ is the rubric score of the events recorded so far, in the form of a
-potential difference with γ = 1 (Ng, Harada and Russell, 1999). I use that form for its practical consequence,
+potential difference with γ = 1 . I use that its practical consequence,
 that the return equals the final score and there are no reward cycles to farm, not to claim policy invariance for
 some other objective. It is meant to plug into PPO or GRPO, rejection-sampling fine-tuning (keep trajectories that
 score 100), or pass@1 evaluation, and the per-seed instances stop those from overfitting to one layout.
 
-The same design extends to other categories by swapping the flaw behind the same environment and reward: a
-padding oracle or nonce reuse for crypto, a leaked credential in a disk image for forensics.
+The same design extends to other categories by swapping the flaw behind the same environment and reward, a leaked credential in a disk image for forensics.
 
 ## Layout
 
@@ -198,14 +209,5 @@ tests/       auth, the flaw, instances, reward, reset, env, solver, scripted age
 
 Design decisions and known weak points are in [DESIGN.md](DESIGN.md).
 
-## AI assistance
 
-I used Claude Code (Anthropic) while building this: for the first scaffold, for a later review and refactor pass
-(per-seed instances, the admin channel, the base64 tool, the extra reward stage, the tests), and for drafting
-these documents. The calibration numbers come from the scripts in this repo, not from me typing them, and the
-test suite covers each mechanism described above.
 
-## References
-
-Ng, Harada and Russell, "Policy invariance under reward transformations" (ICML 1999). OWASP API Security Top 10,
-API1:2023 (broken object-level authorization). CWE-639, CWE-345.

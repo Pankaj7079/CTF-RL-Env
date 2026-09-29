@@ -1,4 +1,4 @@
-# /login — establish a reviewer session (reward stage 2).
+# /login — establish a reviewer session (reviewer_session stage).
 
 from __future__ import annotations
 

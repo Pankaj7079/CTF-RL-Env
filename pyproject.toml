@@ -1,7 +1,7 @@
 [project]
-name = "artifact-relay"
+name = "ctf-rl-env"
 version = "1.0.0"
-description = "Artifact Relay: a web CTF packaged as a resettable RL environment with a staged, machine-checked reward."
+description = "CTF-RL-Env: a web CTF packaged as a resettable RL environment with a staged, machine-checked reward."
 readme = "README.md"
 requires-python = "==3.12.*"
 dependencies = [

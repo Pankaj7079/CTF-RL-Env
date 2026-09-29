@@ -1,4 +1,4 @@
-# /tickets — mint a preview ticket (reward stage 3, first half). This path DOES
+# /tickets — mint a preview ticket (first half of preview_flow). This path DOES
 # enforce the quarantine policy; the relay path is the one that forgets to.
 
 from __future__ import annotations

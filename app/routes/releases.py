@@ -1,4 +1,4 @@
-# /releases — discovery surface (reward stage 1). Unauthenticated on purpose, but
+# /releases — discovery surface (app_discovery stage). Unauthenticated on purpose, but
 # listing emits RELEASES_LISTED for the active attempt.
 
 from __future__ import annotations

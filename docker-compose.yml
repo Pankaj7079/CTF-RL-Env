@@ -1,12 +1,12 @@
 services:
   challenge:
     build: .
-    image: artifact-relay:1.0.0
+    image: ctf-rl-env:1.0.0
     ports:
       - "8000:8000"
     environment:
       # The harness sends this to /_internal/*. Set your own for anything but local use.
-      AR_ADMIN_TOKEN: ${AR_ADMIN_TOKEN:-local-admin-token}
+      CTF_ADMIN_TOKEN: ${CTF_ADMIN_TOKEN:-local-admin-token}
     mem_limit: 1g
     volumes:
       - challenge-state:/data

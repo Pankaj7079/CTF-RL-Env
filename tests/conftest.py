@@ -9,10 +9,10 @@ import tempfile
 from collections.abc import AsyncIterator
 
 # The config is cached, so point it at a throwaway DB before importing app modules.
-_TMP_DB = os.path.join(tempfile.gettempdir(), "artifact_relay_test.db")
+_TMP_DB = os.path.join(tempfile.gettempdir(), "ctf_rl_env_test.db")
 if os.path.exists(_TMP_DB):
     os.remove(_TMP_DB)
-os.environ["AR_DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP_DB}"
+os.environ["CTF_DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP_DB}"
 
 import httpx  # noqa: E402
 import pytest  # noqa: E402

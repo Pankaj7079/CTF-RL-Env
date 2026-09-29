@@ -5,55 +5,55 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 
 import pytest
-from app.env import ArtifactRelayEnv
+from app.env import CTFRLEnv
 
 
 @pytest.fixture
-async def env() -> AsyncIterator[ArtifactRelayEnv]:
-    e = ArtifactRelayEnv(in_process=True)
+async def env() -> AsyncIterator[CTFRLEnv]:
+    e = CTFRLEnv(in_process=True)
     await e.reset(seed=1)
     yield e
     await e.close()
 
 
-async def test_reset_gives_clean_observation(env: ArtifactRelayEnv) -> None:
+async def test_reset_gives_clean_observation(env: CTFRLEnv) -> None:
     obs = await env.reset(seed=5)
     assert obs["grade"]["score"] == 0
     assert obs["turns_left"] == env.turn_budget
     assert obs["seed"] == 5
 
 
-async def test_first_reward_on_discovery(env: ArtifactRelayEnv) -> None:
+async def test_first_reward_on_discovery(env: CTFRLEnv) -> None:
     _obs, reward, terminated, _truncated, _info = await env.step({"action": "list_releases"})
     assert reward == 10 and not terminated
 
 
-async def test_unknown_action_is_a_costly_noop(env: ArtifactRelayEnv) -> None:
+async def test_unknown_action_is_a_costly_noop(env: CTFRLEnv) -> None:
     _obs, reward, terminated, _truncated, info = await env.step({"action": "nonsense"})
     assert reward == 0 and not terminated and info["turns"] == 1
 
 
-async def test_budget_truncates_the_episode(env: ArtifactRelayEnv) -> None:
+async def test_budget_truncates_the_episode(env: CTFRLEnv) -> None:
     truncated = False
     for _ in range(env.turn_budget):
         _obs, _r, _t, truncated, _i = await env.step({"action": "root"})
     assert truncated
 
 
-async def test_agent_requests_cannot_reach_the_internal_channel(env: ArtifactRelayEnv) -> None:
+async def test_agent_requests_cannot_reach_the_internal_channel(env: CTFRLEnv) -> None:
     obs, *_ = await env.step({"action": "http_get", "path": "/_internal/status"})
     assert obs["status"] == 403
     obs, *_ = await env.step({"action": "http_post", "path": "/_internal/reset", "json": {}})
     assert obs["status"] == 403
 
 
-async def test_http_actions_reject_non_local_paths(env: ArtifactRelayEnv) -> None:
+async def test_http_actions_reject_non_local_paths(env: CTFRLEnv) -> None:
     for path in ("http://evil.example/x", "//evil.example/x", "health"):
         obs, *_ = await env.step({"action": "http_get", "path": path})
         assert obs["ok"] is False and "absolute path" in obs["error"]
 
 
-async def test_b64_round_trip_and_errors(env: ArtifactRelayEnv) -> None:
+async def test_b64_round_trip_and_errors(env: CTFRLEnv) -> None:
     obs, *_ = await env.step({"action": "b64", "op": "encode", "data": '{"a":1}'})
     encoded = obs["body"]["result"]
     assert "=" not in encoded

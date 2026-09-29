@@ -1,4 +1,4 @@
-"""Challenge configuration, read from AR_* environment variables."""
+"""Challenge configuration, read from CTF_* environment variables."""
 
 from __future__ import annotations
 
@@ -12,11 +12,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class ChallengeConfig(BaseSettings):
     """Every knob of one deployment. Frozen so it cannot drift mid-run."""
 
-    model_config = SettingsConfigDict(env_prefix="AR_", frozen=True)
+    model_config = SettingsConfigDict(env_prefix="CTF_", frozen=True)
 
     # Signs preview tickets. Recovering it is not the objective (the flaw is in what
     # the signature covers, not in the key), but it is never committed either: it is
-    # random per process. Run a single worker, or set AR_TICKET_SECRET.
+    # random per process. Run a single worker, or set CTF_TICKET_SECRET.
     ticket_secret: str = Field(default_factory=lambda: secrets.token_hex(32))
 
     # Guards /_internal/*, the harness-only channel for status and reset. The env
@@ -34,7 +34,7 @@ class ChallengeConfig(BaseSettings):
     # test more candidates, which makes the task harder. Capped by the name pool.
     decoy_quarantine_count: int = Field(default=1, ge=0, le=4)
 
-    database_url: str = "sqlite+aiosqlite:///./artifact_relay.db"
+    database_url: str = "sqlite+aiosqlite:///./ctf_rl_env.db"
 
 
 @lru_cache(maxsize=1)

@@ -1,4 +1,4 @@
-# /relay — the vulnerable endpoint (reward stages 3b & 4). It verifies the ticket
+# /relay — the vulnerable endpoint (ticket_redirect, protected_artifact). It verifies the ticket
 # signature (scope only), a scope match, and that the ticket is from the active
 # attempt — but never re-checks `quarantined`. That omission is the flaw: a ticket
 # redirected (rewritten `aid`) to a quarantined artifact in the same scope is served.
