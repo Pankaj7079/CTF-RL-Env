@@ -7,8 +7,8 @@ It walks the intended path but has two failure modes, both hand-set probabilitie
   decode the ticket; otherwise it tries a plausible but useless move.
 
 The calibration numbers it produces are conditional on those two assumptions
-(scripts/calibrate.py shows how sensitive they are). The real evidence about
-difficulty is agents/llm_agent.py, which drives an actual model.
+(scripts/calibrate.py shows how sensitive they are). It is a simulation, not a
+measurement of any real model.
 """
 
 from __future__ import annotations

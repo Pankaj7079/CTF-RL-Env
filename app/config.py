@@ -34,9 +34,6 @@ class ChallengeConfig(BaseSettings):
     # test more candidates, which makes the task harder. Capped by the name pool.
     decoy_quarantine_count: int = Field(default=1, ge=0, le=4)
 
-    # One turn is one action plus its observation.
-    turn_budget: int = 16
-
     database_url: str = "sqlite+aiosqlite:///./artifact_relay.db"
 
 

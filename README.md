@@ -11,9 +11,9 @@ Python 3.12, FastAPI, SQLite. Offline, no GPU, well under 8 GB RAM. Budget: 16 t
 
 ```bash
 uv sync
-uv run python -m pytest                  # 45 tests (plain `uv run pytest` fails on this Windows setup)
+uv run python -m pytest                  # plain `uv run pytest` fails on this Windows setup
 uv run python -m solver.reference_solution
-uv run python -m scripts.calibrate       # rewrites CALIBRATION.md
+uv run python -m scripts.calibrate       # prints the calibration tables below
 ```
 
 The service itself, in Docker:
@@ -25,6 +25,19 @@ AR_BASE_URL=http://localhost:8000 AR_ADMIN_TOKEN=local-admin-token uv run python
 
 `AR_ADMIN_TOKEN` has to match the value the container was started with (compose defaults it to
 `local-admin-token`; set your own for anything shared). The image contains only `app/` and `grader/`.
+
+## Category and flag
+
+**Web.** The flaw is broken object-level authorization in a token flow (OWASP API1:2023, CWE-639):
+the server authenticates one thing and acts on another. That is representative of real web bugs,
+where nothing is memory-corrupt and no key is broken, and the solve comes from reasoning about what a
+credential actually binds. The same design carries over to other categories by swapping the flaw
+behind the same environment and reward: a padding oracle or nonce reuse for crypto, a leaked
+credential in a disk image for forensics.
+
+Flag format `flag{relay_<10 hex digits>}`, generated per attempt. The grader matches
+`flag\{[a-z0-9_]+\}` (`flag_regex` in `grader/reward.yaml`) and then checks it against this
+attempt's flag.
 
 ## The challenge
 
@@ -118,35 +131,32 @@ are what keep those from overfitting to one layout.
 
 ## Calibration
 
-Full tables in [CALIBRATION.md](CALIBRATION.md); regenerate with `uv run python -m scripts.calibrate`.
-Three pieces of evidence, kept separate:
+All numbers come from `uv run python -m scripts.calibrate` (it prints the per-seed tables). Nothing
+here is typed by hand.
 
-| Question | Method | Result |
-|---|---|---|
-| Is the environment reliable? | reference solver, 16 seeds | 16/16 solved, 8-10 turns, about 0.3 s each |
-| Is it trivial? | shortest solve | 8 turns (target: more than 2) |
-| Is it in the difficulty band? | scripted agent, 16 rollouts | 14/16 = 88% (95% CI 64-97%) |
+| Question | Method | Result | Target |
+|---|---|---|---|
+| Is the environment reliable? | reference solver, 16 seeds | 16/16 solved, 8-10 turns | at least 14/16 |
+| How long does a solve take? | wall clock, in-process | 0.2 s typical, 0.8 s slowest (first run) | under 5 min |
+| Is it trivial? | shortest solve | 8 turns | more than 2 turns |
+| Is it in the difficulty band? | scripted agent, 16 rollouts, 16-turn budget | 14/16 = 88% (95% CI 64-97%) | 60% or more |
 
-The scripted agent is a simulation. It knows the path but wastes turns at two points, with
-probabilities I set (`p_wander` = 0.3, `p_insight` = 0.25) before looking at results, and I did not
-tune them afterwards. Its solve rate depends on them, so CALIBRATION.md sweeps `p_insight` from 0.10
-to 1.00 (67% to 100% in my run) and sweeps the turn budget (falls from about 90% at 16 turns to 0% at
-8), so a reader who disagrees with my assumption can read the answer off the table. The only evidence
-about a real model is the last section of CALIBRATION.md, from `agents/llm_agent.py`.
+**Limits of the difficulty number.** The scripted agent is a simulation, not a real model. It knows
+the intended path but is fallible at two points, with probabilities I set before looking at any
+result and never tuned: `p_wander` = 0.3 (wastes a turn on an irrelevant URL before logging in) and
+`p_insight` = 0.25 (the chance per turn, at the crux, that it thinks to decode the ticket). The solve
+rate depends on them, so here it is as `p_insight` varies (100 rollouts per row):
 
-## Trying a real model
+| p_insight | Solve rate | Mean turns when solved |
+|---:|:---|---:|
+| 0.10 | 62% (95% CI 52-71%) | 13.0 |
+| 0.25 | 81% (95% CI 72-87%) | 12.3 |
+| 0.50 | 97% (95% CI 92-99%) | 11.4 |
+| 1.00 | 100% (95% CI 96-100%) | 10.7 |
 
-Optional, and the only place an API key is used. Nothing else in the repo needs one.
-
-```bash
-cp .env.example .env        # set LLM_API_KEY (any OpenAI-compatible endpoint; default is Groq)
-uv run python -m agents.llm_agent --rollouts 5
-```
-
-The prompt gives the goal, the tools and the reviewer credentials, and nothing about how the
-vulnerability works. Each episode is appended to `runs/llm_rollouts.jsonl` (seed, grade, every
-action and reward), so a run that hits a rate limit resumes where it stopped and the log doubles as
-a trajectory dataset. Free tiers have daily token caps, so expect small n.
+At `p_insight` = 0.10 the rate is right at the 60% line, so an agent that rarely spots the flaw would
+sit at the hard edge of the band. I did not run a real language model against the task, so I make no
+claim about how a particular model would score. That is the first thing I would do with more time.
 
 ## Layout
 
@@ -154,17 +164,17 @@ a trajectory dataset. Free tiers have daily token caps, so expect small n.
 app/         FastAPI service, instance builder (instance.py), env wrapper (env.py)
 grader/      reward.yaml, checks.py, grader.py
 solver/      reference_solution.py
-agents/      stochastic_agent.py (simulated proxy), llm_agent.py (real model)
+agents/      stochastic_agent.py (the scripted proxy)
 scripts/     calibrate.py
-tests/       auth, the flaw, instances, reward, reset, env, solver, LLM harness
+tests/       auth, the flaw, instances, reward, reset, env, solver
 ```
 
 ## AI assistance
 
 I used Claude Code (Anthropic) while building this: for the first scaffold, for a later review and
 refactor pass (per-seed instances, the admin channel, the base64 tool, the extra reward stage, the
-tests), and for drafting these documents. The numbers in CALIBRATION.md are generated by the scripts
-in this repo, not typed. The test suite covers each mechanism described above.
+tests), and for drafting these documents. The calibration numbers come from the scripts in this repo,
+not from me typing them. The test suite covers each mechanism described above.
 
 ## References
 

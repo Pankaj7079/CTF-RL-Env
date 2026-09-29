@@ -1,1 +1,1 @@
-# Reference agents (scripted + LLM).
+# Scripted reference agent.

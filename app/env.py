@@ -56,14 +56,9 @@ def _b64(op: str, data: str) -> dict[str, Any]:
 class ArtifactRelayEnv:
     """One agent-facing episode loop over the challenge service."""
 
-    def __init__(
-        self,
-        base_url: str | None = None,
-        in_process: bool = True,
-        turn_budget: int | None = None,
-    ) -> None:
+    def __init__(self, base_url: str | None = None, in_process: bool = True) -> None:
         self._rubric: Rubric = load_rubric()
-        self.turn_budget = turn_budget or self._rubric.turn_budget
+        self.turn_budget = self._rubric.turn_budget
         self._in_process = in_process
         self._base_url = base_url or "http://challenge"
         self._admin = {"X-Admin-Token": get_config().admin_token}
