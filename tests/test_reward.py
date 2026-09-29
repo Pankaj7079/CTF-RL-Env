@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import httpx
+import pytest
 from app.events import EventType
 
 from grader.grader import grade, load_rubric
@@ -13,6 +16,30 @@ def test_rubric_totals_100() -> None:
     rubric = load_rubric()
     assert rubric.max_score == 100
     assert len(rubric.stages) == 6
+
+
+def test_every_stage_lists_events_the_server_can_record() -> None:
+    known = {e.value for e in EventType}
+    for stage in load_rubric().stages:
+        assert stage.events and set(stage.events) <= known
+
+
+def test_a_typo_in_an_event_name_is_rejected_at_load(tmp_path: Path) -> None:
+    bad = tmp_path / "rubric.yaml"
+    bad.write_text(
+        "version: 3\nname: x\nflag_regex: 'flag'\nturn_budget: 16\nstages:\n"
+        "  - {id: a, description: d, events: [RELEASES_LISTD], score: 100}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="known events"):
+        load_rubric(str(bad))
+
+
+def test_a_stage_needing_two_events_waits_for_both() -> None:
+    minted, accepted = str(EventType.TICKET_MINTED), str(EventType.RELAY_OK)
+    assert "preview_flow" not in grade({minted}).reached
+    assert "preview_flow" not in grade({accepted}).reached
+    assert "preview_flow" in grade({minted, accepted}).reached
 
 
 def test_grade_is_monotonic_and_reaches_100() -> None:

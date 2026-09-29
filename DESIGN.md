@@ -11,7 +11,7 @@ decide whether the result is usable as training data.
 ## Decisions
 
 **Reward from server events, as a potential difference.** The grader reads events the server
-recorded for the current attempt, through named predicates listed in `reward.yaml`. Per-step reward
+recorded for the current attempt, as event lists in `reward.yaml`. Per-step reward
 is the increase in the rubric score, so it is dense, non-negative and cannot be farmed by repeating
 an action. I added a `ticket_redirect` stage after seeing that the original five stages left no
 signal at the hard step (the jump from previewing a public file to reading a protected one).

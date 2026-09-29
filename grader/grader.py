@@ -4,12 +4,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 import yaml
-
-from grader.checks import get_check
+from app.events import EventType
 
 RUBRIC_PATH = Path(__file__).with_name("reward.yaml")
 
@@ -18,7 +17,7 @@ RUBRIC_PATH = Path(__file__).with_name("reward.yaml")
 class Stage:
     id: str
     description: str
-    check: str
+    events: tuple[str, ...]
     score: int
 
 
@@ -35,14 +34,20 @@ class Rubric:
         return sum(s.score for s in self.stages)
 
 
+def _stage(raw: dict) -> Stage:
+    """Build a stage, rejecting a typo in an event name instead of never awarding it."""
+    events = tuple(raw["events"])
+    unknown = [name for name in events if name not in {e.value for e in EventType}]
+    if not events or unknown:
+        raise ValueError(f"stage {raw['id']!r} needs known events, got {list(raw['events'])}")
+    return Stage(id=raw["id"], description=raw["description"], events=events, score=raw["score"])
+
+
 # Load + cache the rubric from YAML.
-@lru_cache(maxsize=1)
+@cache
 def load_rubric(path: str | None = None) -> Rubric:
     data = yaml.safe_load(Path(path or RUBRIC_PATH).read_text(encoding="utf-8"))
-    stages = tuple(
-        Stage(id=s["id"], description=s["description"], check=s["check"], score=int(s["score"]))
-        for s in data["stages"]
-    )
+    stages = tuple(_stage(s) for s in data["stages"])
     return Rubric(
         version=int(data["version"]),
         name=data["name"],
@@ -71,7 +76,7 @@ class GradeResult:
 
 
 def grade(events: set[str], rubric: Rubric | None = None) -> GradeResult:
-    """Sum the score of every stage whose check passes.
+    """Sum the score of every stage whose events have all been recorded.
 
     ``solved`` means the final stage (the flag) was reached. Skipping an earlier,
     non-essential stage such as listing releases costs points but not the solve.
@@ -81,7 +86,7 @@ def grade(events: set[str], rubric: Rubric | None = None) -> GradeResult:
     reached: list[str] = []
     highest: str | None = None
     for stage in rubric.stages:
-        if get_check(stage.check)(events):
+        if all(name in events for name in stage.events):
             score += stage.score
             reached.append(stage.id)
             highest = stage.id

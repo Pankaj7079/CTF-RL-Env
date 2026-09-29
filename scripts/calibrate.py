@@ -19,6 +19,8 @@ from agents.stochastic_agent import RolloutResult, StochasticAgent
 from app.env import ArtifactRelayEnv
 from solver.reference_solution import solve
 
+P_WANDER = 0.3
+P_INSIGHT = 0.25
 SOLVE_TARGET = 0.60
 MIN_ROLLOUTS = 16
 RELIABILITY_TARGET = 14
@@ -83,8 +85,8 @@ async def main() -> int:
     parser = argparse.ArgumentParser(description="Calibrate Artifact Relay.")
     parser.add_argument("--runs", type=int, default=16, help="rollouts for the headline tables")
     parser.add_argument("--sweep-runs", type=int, default=100, help="rollouts per sweep row")
-    parser.add_argument("--p-wander", type=float, default=0.3)
-    parser.add_argument("--p-insight", type=float, default=0.25)
+    parser.add_argument("--p-wander", type=float, default=P_WANDER)
+    parser.add_argument("--p-insight", type=float, default=P_INSIGHT)
     args = parser.parse_args()
 
     rel = await reliability(args.runs)
